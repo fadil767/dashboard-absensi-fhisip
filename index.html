@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Rekapitulasi Absensi Pegawai FHISIP Universitas Terbuka</title>
+  <meta name="description" content="Dashboard Rekapitulasi Absensi Pegawai Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik (FHISIP) Universitas Terbuka dengan pengaturan batas datang terlambat dan jam kepulangan secara real-time.">
+  <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- =====================================================================
+       KOP RESMI FHISIP UT UNTUK CETAK DOKUMEN / PRINT
+       ===================================================================== -->
+  <div class="print-letterhead">
+    <h2>KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI</h2>
+    <h2>UNIVERSITAS TERBUKA</h2>
+    <h3>FAKULTAS HUKUM, ILMU SOSIAL, DAN ILMU POLITIK (FHISIP)</h3>
+    <p>Jl. Cabe Raya, Pondok Cabe, Pamulang, Tangerang Selatan 15418 | Laman: fhisip.ut.ac.id</p>
+    <div style="margin-top: 10px; font-weight: bold; font-size: 11pt;">
+      LAPORAN REKAPITULASI DISIPLIN DAN PRESENSI PEGAWAI
+    </div>
+    <div id="print-rule-summary" style="font-size: 8.5pt; color: #333; margin-top: 4px;">
+      Batas Datang: 08:30 WIB | Batas Pulang: 16:30 WIB
+    </div>
+  </div>
+
+  <div class="app-container">
+
+    <!-- ===================================================================
+         HEADER DASHBOARD UT FHISIP
+         =================================================================== -->
+    <header class="header-wrapper">
+      <div class="brand-section">
+        <img src="assets/logo.jpg" alt="Logo Universitas Terbuka" class="brand-logo" onerror="this.src='https://www.ut.ac.id/wp-content/uploads/2023/07/logo-ut.png';">
+        <div class="brand-info">
+          <h1>
+            UNIVERSITAS TERBUKA
+            <span class="brand-badge">FHISIP</span>
+          </h1>
+          <p>Dashboard Rekapitulasi Presensi & Manajemen Disiplin Pegawai (Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik)</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <a href="landing.html" class="btn btn-outline" title="Kembali ke Landing Page / Portal">
+          <span>🏠</span> Beranda Portal
+        </a>
+        <button type="button" class="btn btn-outline" onclick="window.app.openModal('modal-import')" title="Impor Data dari Berkas Excel .xls/.xlsx atau Scan Biometrik">
+          <span>📥</span> Import Excel / Scan
+        </button>
+        <button type="button" class="btn btn-primary" onclick="window.app.openModal('modal-tambah')">
+          <span>➕</span> Tambah Presensi
+        </button>
+        <button type="button" class="btn btn-outline" onclick="window.app.exportToCsv()" title="Unduh format spreadsheet CSV">
+          <span>📊</span> Ekspor CSV
+        </button>
+        <button type="button" class="btn btn-primary" onclick="window.app.exportPdf('harian')" style="background:var(--ut-blue);" title="Unduh Dokumen PDF Resmi Lengkap dengan Kop Surat FHISIP UT">
+          <span>📄</span> Unduh PDF
+        </button>
+        <button type="button" class="btn btn-outline" onclick="window.supabaseSync.openModal()" title="Koneksi & Sinkronisasi Database Supabase Cloud">
+          <span>☁️</span> Supabase
+        </button>
+        <button type="button" class="btn btn-outline" onclick="window.app.printOfficialReport()" title="Cetak laporan resmi">
+          <span>🖨️</span> Cetak
+        </button>
+        <button type="button" class="btn btn-outline" onclick="window.app.resetToDefault()" title="Kembalikan ke data awal">
+          <span>🔄</span> Reset
+        </button>
+      </div>
+    </header>
+
+    <!-- ===================================================================
+         PANEL OPSI BATAS DATANG TERLAMBAT & KEPULANGAN
+         (FITUR UTAMA YANG DIMINTA)
+         =================================================================== -->
+    <section class="config-card" aria-label="Pengaturan Batas Waktu Presensi">
+      <div class="config-header">
+        <div class="config-title-group">
+          <div class="config-title-icon">⚙️</div>
+          <div>
+            <h2>Pengaturan Batas Datang Terlambat & Waktu Kepulangan</h2>
+            <p>Atur batas jam kerja resmi FHISIP. Perubahan waktu akan langsung menghitung ulang status keterlambatan seluruh data secara instan.</p>
+          </div>
+        </div>
+
+        <!-- Preset Cepat Kebijakan -->
+        <div class="config-preset-pills">
+          <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">Preset Kebijakan:</span>
+          <button type="button" class="preset-btn active" data-preset="fhisip">
+            🏛 SK FHISIP UT (08:30 & 16:30)
+          </button>
+          <button type="button" class="preset-btn" data-preset="ut-pusat">
+            🏢 Standar UT Pusat (08:00 & 16:30)
+          </button>
+          <button type="button" class="preset-btn" data-preset="toleransi-15">
+            ⏱ Dispensasi (+15 Menit)
+          </button>
+        </div>
+      </div>
+
+      <div class="config-grid">
+        <!-- Input Batas Datang Terlambat -->
+        <div class="config-field">
+          <div class="config-field-label">
+            <span>Batas Datang Terlambat</span>
+            <span class="config-badge config-badge-danger">Maksimal Masuk</span>
+          </div>
+          <div class="config-input-row">
+            <input type="time" id="input-jam-masuk" class="time-input" value="08:30" aria-label="Batas Jam Masuk">
+          </div>
+          <small style="font-size:0.75rem; color:var(--text-muted);">Pegawai scan setelah waktu ini dihitung <strong>Terlambat</strong>.</small>
+        </div>
+
+        <!-- Input Toleransi Datang Terlambat -->
+        <div class="config-field">
+          <div class="config-field-label">
+            <span>Toleransi Keterlambatan</span>
+            <span class="config-badge config-badge-info">Kelonggaran</span>
+          </div>
+          <div class="config-input-row">
+            <input type="number" id="input-toleransi" class="time-input" value="0" min="0" max="60" step="5" aria-label="Toleransi Menit">
+            <span style="font-weight:700; color:var(--text-muted); font-size:0.85rem;">Menit</span>
+          </div>
+          <div class="tolerance-chips">
+            <button type="button" class="tolerance-chip active" data-minutes="0">0 mnt</button>
+            <button type="button" class="tolerance-chip" data-minutes="5">5 mnt</button>
+            <button type="button" class="tolerance-chip" data-minutes="10">10 mnt</button>
+            <button type="button" class="tolerance-chip" data-minutes="15">15 mnt</button>
+          </div>
+        </div>
+
+        <!-- Input Batas Kepulangan (Senin-Kamis) -->
+        <div class="config-field">
+          <div class="config-field-label">
+            <span>Batas Kepulangan (Senin - Kamis)</span>
+            <span class="config-badge config-badge-warning">Minimal Pulang</span>
+          </div>
+          <div class="config-input-row">
+            <input type="time" id="input-jam-pulang" class="time-input" value="16:30" aria-label="Batas Jam Pulang">
+          </div>
+          <small style="font-size:0.75rem; color:var(--text-muted);">Scan keluar sebelum jam ini dihitung <strong>Pulang Cepat</strong>.</small>
+        </div>
+
+        <!-- Input Batas Kepulangan (Khusus Jumat) -->
+        <div class="config-field">
+          <div class="config-field-label">
+            <span>Batas Kepulangan (Hari Jumat)</span>
+            <span class="config-badge config-badge-warning">Khusus Jumat</span>
+          </div>
+          <div class="config-input-row">
+            <input type="time" id="input-jam-pulang-jumat" class="time-input" value="16:30" aria-label="Batas Jam Pulang Jumat">
+          </div>
+          <small style="font-size:0.75rem; color:var(--text-muted);">Sesuai penyesuaian ibadah Shalat Jumat.</small>
+        </div>
+      </div>
+
+      <div class="config-footer-note">
+        <div class="active-rule-summary" id="header-policy-rule">
+          Memuat aturan jam kerja...
+        </div>
+        <div>
+          <span>💡 Kalkulasi otomatis berjalan secara reaktif di browser tanpa membebani server.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         SUMMARY KPI CARDS (REKAPITULASI REAL-TIME)
+         =================================================================== -->
+    <section class="stats-grid" aria-label="Ringkasan Statistik Disiplin">
+      <!-- Total Presensi -->
+      <div class="stat-card stat-total">
+        <div class="stat-card-top">
+          <span class="stat-card-label">Total Presensi</span>
+          <div class="stat-card-icon">📑</div>
+        </div>
+        <div class="stat-card-value" id="stat-total-records">0</div>
+        <div class="stat-card-sub" style="color:var(--ut-blue);">
+          <span>Fakultas FHISIP UT</span>
+        </div>
+      </div>
+
+      <!-- Tepat Waktu -->
+      <div class="stat-card stat-success">
+        <div class="stat-card-top">
+          <span class="stat-card-label">Tepat Waktu</span>
+          <div class="stat-card-icon">✅</div>
+        </div>
+        <div class="stat-card-value" id="stat-tepat-count">0</div>
+        <div class="stat-card-sub" id="stat-tepat-pct" style="color:var(--success-text);">0% Tepat Waktu</div>
+        <div class="stat-progress-bar">
+          <div class="stat-progress-fill fill-success" id="bar-tepat" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Terlambat Datang -->
+      <div class="stat-card stat-danger">
+        <div class="stat-card-top">
+          <span class="stat-card-label">Terlambat Datang</span>
+          <div class="stat-card-icon">🚨</div>
+        </div>
+        <div class="stat-card-value" id="stat-telat-count">0</div>
+        <div class="stat-card-sub" id="stat-telat-sub" style="color:var(--danger-text);">0% • Rata-rata 0 mnt</div>
+        <div class="stat-progress-bar">
+          <div class="stat-progress-fill fill-danger" id="bar-telat" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Pulang Lebih Awal -->
+      <div class="stat-card stat-warning">
+        <div class="stat-card-top">
+          <span class="stat-card-label">Pulang Lebih Awal</span>
+          <div class="stat-card-icon">⏳</div>
+        </div>
+        <div class="stat-card-value" id="stat-pulang-cepat-count">0</div>
+        <div class="stat-card-sub" style="color:var(--warning-text);">Mendahului Jam Resmi</div>
+        <div class="stat-progress-bar">
+          <div class="stat-progress-fill fill-warning" id="bar-pulang-cepat" style="width: 0%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================
+         VIEW TABS (NAVIGASI REKAPITULASI)
+         =================================================================== -->
+    <div class="view-tabs-bar">
+      <div class="view-tabs">
+        <button type="button" class="tab-btn active" data-tab="harian">
+          <span>📋</span> Log Presensi Harian
+          <span class="tab-count-badge" id="tab-count-harian">0</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="pegawai">
+          <span>👥</span> Rekap per Pegawai (Akumulasi)
+          <span class="tab-count-badge" id="tab-count-pegawai">0</span>
+        </button>
+        <button type="button" class="tab-btn" data-tab="prodi">
+          <span>🏛</span> Rekap per Program Studi / Bagian
+        </button>
+      </div>
+    </div>
+
+    <!-- ===================================================================
+         TABEL DAN PENGELOLAAN DATA (MAIN CONTENT CARD)
+         =================================================================== -->
+    <main class="table-card">
+
+      <!-- Toolbar Pencarian & Filter Multi-Dimensi -->
+      <div class="toolbar-wrapper">
+        <div class="toolbar-left">
+          <!-- Search box -->
+          <div class="search-box">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="filter-search" class="search-input" placeholder="Cari Nama Pegawai atau NIP..." aria-label="Pencarian Pegawai">
+          </div>
+
+          <!-- Filter Unit / Prodi -->
+          <select id="filter-unit" class="select-filter" aria-label="Filter Program Studi">
+            <option value="">Semua Program Studi / Unit</option>
+          </select>
+
+          <!-- Filter Tanggal -->
+          <select id="filter-date" class="select-filter" aria-label="Filter Tanggal Presensi">
+            <option value="">Semua Tanggal Periode</option>
+          </select>
+        </div>
+
+        <div class="toolbar-right">
+          <!-- Quick Status Filter (Telat vs Tepat) -->
+          <div class="quick-status-filter" aria-label="Filter Status Disiplin">
+            <button type="button" class="status-filter-btn active" data-status="all">Semua</button>
+            <button type="button" class="status-filter-btn filter-telat" data-status="telat">🚨 Terlambat</button>
+            <button type="button" class="status-filter-btn filter-tepat" data-status="tepat">✅ Tepat</button>
+            <button type="button" class="status-filter-btn" data-status="pulang_cepat">⏳ Pulang Cepat</button>
+            <button type="button" class="status-filter-btn" data-status="izin">📄 Izin/Cuti</button>
+          </div>
+
+          <!-- Sort dropdown -->
+          <select id="filter-sort" class="select-filter" style="width: 170px;" aria-label="Urutkan Data">
+            <option value="telat_desc">Menit Telat Terlama</option>
+            <option value="nama_asc">Nama Pegawai (A-Z)</option>
+            <option value="masuk_asc">Jam Datang Pagi</option>
+            <option value="tanggal_desc">Tanggal Terbaru</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- VIEW 1: TABEL LOG PRESENSI HARIAN -->
+      <div id="view-harian">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:45px; text-align:center;">No</th>
+                <th>Tanggal</th>
+                <th>Pegawai FHISIP UT</th>
+                <th>Unit Kerja / Prodi</th>
+                <th style="text-align:center;">Jam Datang</th>
+                <th style="text-align:center;">Jam Pulang</th>
+                <th>Status Disiplin</th>
+                <th style="width:110px; text-align:center;">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="table-body-harian">
+              <tr>
+                <td colspan="8" class="empty-state">Memuat data presensi...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination Controls -->
+        <div class="table-footer">
+          <div class="table-footer-info" id="pagination-info">
+            Menampilkan data...
+          </div>
+          <div class="pagination-controls">
+            <button type="button" class="page-btn" id="btn-page-prev">← Sebelumnya</button>
+            <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted);" id="pagination-page-num">Halaman 1</span>
+            <button type="button" class="page-btn" id="btn-page-next">Selanjutnya →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: REKAPITULASI PER PEGAWAI (AKUMULASI) -->
+      <div id="view-pegawai" style="display: none;">
+        <div style="display: flex; justify-content: flex-end; padding: 12px 18px 6px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportPdf('pegawai')" title="Unduh Rekap Akumulasi per Pegawai dalam format PDF">
+            <span>📄</span> Unduh PDF Rekap Pegawai
+          </button>
+        </div>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:45px; text-align:center;">No</th>
+                <th>Pegawai FHISIP UT</th>
+                <th>Unit Kerja / Prodi</th>
+                <th style="text-align:center;">Total Hadir</th>
+                <th style="text-align:center;">Tepat Waktu</th>
+                <th style="text-align:center;">Terlambat</th>
+                <th style="text-align:center;">Tingkat Disiplin</th>
+                <th style="text-align:center;">Evaluasi Kepatuhan</th>
+              </tr>
+            </thead>
+            <tbody id="table-body-pegawai">
+              <tr>
+                <td colspan="8" class="empty-state">Memuat rekapitulasi pegawai...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW 3: REKAPITULASI PER PROGRAM STUDI / BAGIAN -->
+      <div id="view-prodi" style="display: none;">
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:45px; text-align:center;">No</th>
+                <th>Program Studi / Unit Kerja FHISIP</th>
+                <th style="text-align:center;">Jumlah Pegawai</th>
+                <th style="text-align:center;">Total Presensi</th>
+                <th style="text-align:center;">Tepat Waktu</th>
+                <th style="text-align:center;">Total Terlambat</th>
+                <th style="text-align:center;">% Disiplin Unit</th>
+              </tr>
+            </thead>
+            <tbody id="table-body-prodi">
+              <tr>
+                <td colspan="7" class="empty-state">Memuat rekapitulasi prodi...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- ===================================================================
+         BLOK TANDA TANGAN UNTUK CETAK DOKUMEN / PRINT
+         =================================================================== -->
+    <div class="print-signatures">
+      <div class="signature-box">
+        <p>Mengetahui,</p>
+        <p><strong>Kepala Bagian Tata Usaha FHISIP</strong></p>
+        <div class="signature-space"></div>
+        <p><strong>(......................................................)</strong></p>
+        <p>NIP. ..................................................</p>
+      </div>
+
+      <div class="signature-box">
+        <p>Tangerang Selatan, <span id="print-current-date"></span></p>
+        <p><strong>Dekan FHISIP Universitas Terbuka</strong></p>
+        <div class="signature-space"></div>
+        <p><strong>(......................................................)</strong></p>
+        <p>NIP. ..................................................</p>
+      </div>
+    </div>
+
+  </div> <!-- /.app-container -->
+
+  <!-- =====================================================================
+       MODAL 1: TAMBAH DATA PRESENSI BARU
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-tambah" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>➕ Tambah Presensi Pegawai</h3>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-tambah')">&times;</button>
+      </div>
+      <form id="form-tambah-presensi">
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="modal-tambah-pegawai">Pilih Pegawai FHISIP *</label>
+            <select id="modal-tambah-pegawai" class="form-control" required>
+              <option value="">-- Memuat daftar pegawai... --</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-tambah-tanggal">Tanggal Presensi *</label>
+            <input type="date" id="modal-tambah-tanggal" class="form-control" value="2026-10-20" required>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="modal-tambah-masuk">Jam Datang / Masuk</label>
+              <input type="time" id="modal-tambah-masuk" class="form-control" value="08:15">
+            </div>
+            <div class="form-group">
+              <label for="modal-tambah-pulang">Jam Pulang / Keluar</label>
+              <input type="time" id="modal-tambah-pulang" class="form-control" value="16:45">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-tambah-status">Status Kehadiran</label>
+            <select id="modal-tambah-status" class="form-control">
+              <option value="Hadir">Hadir (Evaluasi Jam Masuk/Pulang)</option>
+              <option value="Dinas Luar">Dinas Luar / Tugas Luar</option>
+              <option value="Izin">Izin Resmi</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Cuti">Cuti Tahunan / Bersama</option>
+              <option value="Alpha">Tanpa Keterangan (Alpha)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-tambah-keterangan">Keterangan / Catatan</label>
+            <input type="text" id="modal-tambah-keterangan" class="form-control" placeholder="Contoh: Rapat Dekanat, Tugas ke UT Daerah, Dispensasi hujan">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-tambah')">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan Presensi</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 2: EDIT PRESENSI PEGAWAI
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-edit" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>✏️ Edit Presensi Pegawai</h3>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-edit')">&times;</button>
+      </div>
+      <form id="form-edit-presensi">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Pegawai</label>
+            <input type="text" id="modal-edit-pegawai" class="form-control" readonly style="background:#F1F5F9; font-weight:700;">
+          </div>
+
+          <div class="form-group">
+            <label>Tanggal</label>
+            <input type="date" id="modal-edit-tanggal" class="form-control" readonly style="background:#F1F5F9;">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="modal-edit-masuk">Jam Datang / Masuk</label>
+              <input type="time" id="modal-edit-masuk" class="form-control">
+            </div>
+            <div class="form-group">
+              <label for="modal-edit-pulang">Jam Pulang / Keluar</label>
+              <input type="time" id="modal-edit-pulang" class="form-control">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-edit-status">Status Kehadiran</label>
+            <select id="modal-edit-status" class="form-control">
+              <option value="Hadir">Hadir</option>
+              <option value="Dinas Luar">Dinas Luar / Tugas Luar</option>
+              <option value="Izin">Izin Resmi</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Cuti">Cuti</option>
+              <option value="Alpha">Tanpa Keterangan (Alpha)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="modal-edit-keterangan">Keterangan / Catatan Dispensasi</label>
+            <input type="text" id="modal-edit-keterangan" class="form-control" placeholder="Tambahkan alasan koreksi jika diperlukan">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-edit')">Batal</button>
+          <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 3: IMPORT BERKAS EXCEL / MESIN BIOMETRIK
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-import" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 600px;">
+      <div class="modal-header">
+        <h3>📥 Import Berkas Presensi (Excel / Scan)</h3>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-import')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5;">
+          Unggah berkas rekap presensi. Sistem mendukung <strong>dua jenis format secara otomatis</strong>:
+        </p>
+        
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; font-size:0.8rem; line-height:1.5; color:var(--text-main);">
+          <div><strong>1. Format Mesin Pemindai Biometrik (Data Scan Karyawan .xls / .xlsx):</strong></div>
+          <div style="color:var(--text-muted); margin-bottom:6px;">Format matriks resmi dari mesin scan fingerprint/RFID (seperti <code>19102026_Rekap Absensi.xls</code>).</div>
+          <div><strong>2. Format Spreadsheet Tabular (.xlsx / .csv):</strong></div>
+          <div style="color:var(--text-muted);">Format kolom: <code>NIP/PIN</code>, <code>Nama</code>, <code>Tanggal</code>, <code>Jam Masuk</code>, <code>Jam Pulang</code>, <code>Status</code>.</div>
+        </div>
+
+        <!-- Drag and drop zone -->
+        <div class="dropzone-box" id="import-dropzone" onclick="document.getElementById('input-file-excel').click()">
+          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-text">
+            <h4>Pilih Berkas Excel atau Tarik ke Sini</h4>
+            <p>Mendukung ekstensi <strong>.xls</strong>, <strong>.xlsx</strong>, atau <strong>.csv</strong></p>
+          </div>
+          <input type="file" id="input-file-excel" accept=".xls,.xlsx,.csv" style="display:none;">
+        </div>
+
+        <div id="import-loading-indicator" style="display:none; align-items:center; justify-content:center; gap:10px; padding:15px; font-weight:700; color:var(--ut-blue);">
+          <span>⏳ Sedang memproses dan mencocokkan data pegawai...</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-import')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 4: PRATINJAU HASIL PARSING IMPORT
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-import-preview" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3>🔍 Pratinjau Hasil Pembacaan Berkas</h3>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-import-preview')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <!-- Summary meta grid -->
+        <div class="import-preview-meta">
+          <div class="import-meta-item">
+            <span>Nama Berkas</span>
+            <strong id="import-file-name">-</strong>
+          </div>
+          <div class="import-meta-item">
+            <span>Tipe Format</span>
+            <strong id="import-file-type" style="color:var(--ut-blue); font-size:0.85rem;">-</strong>
+          </div>
+          <div class="import-meta-item">
+            <span>Total Catatan</span>
+            <strong id="import-total-count" style="color:var(--success-text); font-size:1.1rem;">0</strong>
+          </div>
+          <div class="import-meta-item">
+            <span>Pegawai Cocok</span>
+            <strong id="import-pegawai-count">0</strong>
+          </div>
+          <div class="import-meta-item" style="grid-column: 1 / -1;">
+            <span>Rentang Tanggal</span>
+            <strong id="import-date-range">-</strong>
+          </div>
+        </div>
+
+        <p style="font-size:0.8rem; font-weight:700; color:var(--ut-navy); margin-bottom:6px;">
+          Contoh 10 Baris Pertama yang Terbaca:
+        </p>
+
+        <div class="table-responsive" style="max-height: 240px; overflow-y:auto; border:1px solid #E2E8F0; border-radius:8px;">
+          <table style="font-size:0.78rem;">
+            <thead>
+              <tr style="background:#F8FAFC;">
+                <th style="width:30px; text-align:center;">No</th>
+                <th>Tanggal</th>
+                <th>NIP</th>
+                <th>Nama Pegawai</th>
+                <th>Unit Kerja</th>
+                <th style="text-align:center;">Masuk</th>
+                <th style="text-align:center;">Pulang</th>
+              </tr>
+            </thead>
+            <tbody id="import-preview-tbody">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:14px; font-size:0.8rem; color:var(--text-muted);">
+          Silakan pilih metode memasukkan data: <strong>Gabungkan</strong> (menambahkan data baru) atau <strong>Gantikan</strong> (menghapus data lama).
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-import-preview')">Batal</button>
+        <button type="button" class="btn btn-outline" onclick="window.excelImport.commitImport('append')" title="Menambahkan data yang belum ada">
+          <span>➕</span> Gabungkan Data
+        </button>
+        <button type="button" class="btn btn-primary" onclick="window.excelImport.commitImport('replace')" title="Menimpa seluruh data saat ini">
+          <span>⚠️</span> Gantikan Seluruh Data
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 5: INTEGRASI & SINKRONISASI DATABASE SUPABASE CLOUD
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-supabase" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 580px;">
+      <div class="modal-header">
+        <h3>☁️ Integrasi Database Supabase Cloud</h3>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-supabase')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <span style="font-size:0.85rem; font-weight:700; color:var(--ut-navy);">Status Koneksi:</span>
+          <span id="supabase-status-badge" class="badge-status badge-alpha">○ Belum Terhubung</span>
+        </div>
+
+        <div class="form-group">
+          <label for="supabase-url">Supabase Project URL *</label>
+          <input type="text" id="supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co">
+        </div>
+
+        <div class="form-group">
+          <label for="supabase-key">Supabase Anon / Public API Key *</label>
+          <input type="password" id="supabase-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+        </div>
+
+        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; font-size:0.78rem; line-height:1.5; color:var(--text-muted); margin-top:8px;">
+          <strong>💡 Petunjuk Setup Supabase:</strong>
+          <ol style="margin-left: 18px; margin-top: 4px;">
+            <li>Buat project baru di <a href="https://supabase.com" target="_blank" rel="noopener" style="color:var(--ut-blue); font-weight:700;">supabase.com</a>.</li>
+            <li>Jalankan skrip <code>supabase/schema.sql</code> dan <code>supabase/seed.sql</code> pada menu <strong>SQL Editor</strong> di dashboard Supabase Anda.</li>
+            <li>Salin <strong>Project URL</strong> dan <strong>anon key</strong> dari menu <em>Project Settings → API</em> ke form di atas.</li>
+          </ol>
+        </div>
+
+        <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
+          <button type="button" id="btn-test-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.testConnection()">
+            ⚡ Test Koneksi
+          </button>
+          <button type="button" id="btn-pull-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.pull()">
+            ⬇ Tarik Data dari Cloud
+          </button>
+          <button type="button" id="btn-push-supabase" class="btn btn-primary btn-sm" onclick="window.supabaseSync.push()">
+            ⬆ Unggah Data Lokal ke Cloud
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-supabase')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vendor Libraries for Excel, PDF, & Supabase -->
+  <script src="js/vendor/xlsx.full.min.js"></script>
+  <script src="js/vendor/pdfmake.min.js"></script>
+  <script src="js/vendor/vfs_fonts.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Application Logic Modules -->
+  <script src="js/data-fhisip.js"></script>
+  <script src="js/excel-import.js"></script>
+  <script src="js/pdf-export.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // Set current date on print footer
+    document.addEventListener('DOMContentLoaded', () => {
+      const elDate = document.getElementById('print-current-date');
+      if (elDate) {
+        elDate.textContent = new Date().toLocaleDateString('id-ID', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric'
+        });
+      }
+    });
+  </script>
+</body>
+</html>
