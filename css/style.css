@@ -1508,22 +1508,7 @@ tbody tr.highlight-telat:hover td {
     background: transparent !important;
   }
 
-  .print-signatures {
-    display: flex !important;
-    justify-content: space-between;
-    margin-top: 40px;
-    page-break-inside: avoid;
-    padding: 0 20px;
-  }
 
-  .signature-box {
-    text-align: center;
-    width: 240px;
-  }
-
-  .signature-space {
-    height: 70px;
-  }
 }
 
 /* Responsive adjustments */

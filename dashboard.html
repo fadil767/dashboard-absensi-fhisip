@@ -520,26 +520,7 @@
 
     </main>
 
-    <!-- ===================================================================
-         BLOK TANDA TANGAN UNTUK CETAK DOKUMEN / PRINT
-         =================================================================== -->
-    <div class="print-signatures">
-      <div class="signature-box">
-        <p>Mengetahui,</p>
-        <p><strong>Kepala Bagian Tata Usaha FHISIP</strong></p>
-        <div class="signature-space"></div>
-        <p><strong>(......................................................)</strong></p>
-        <p>NIP. ..................................................</p>
-      </div>
 
-      <div class="signature-box">
-        <p>Tangerang Selatan, <span id="print-current-date"></span></p>
-        <p><strong>Dekan FHISIP Universitas Terbuka</strong></p>
-        <div class="signature-space"></div>
-        <p><strong>(......................................................)</strong></p>
-        <p>NIP. ..................................................</p>
-      </div>
-    </div>
 
   </div> <!-- /.app-container -->
 
@@ -840,17 +821,7 @@
   <script src="js/supabase-client.js"></script>
   <script src="js/app.js"></script>
   <script>
-    // Set current date on print footer & check session
     document.addEventListener('DOMContentLoaded', () => {
-      const elDate = document.getElementById('print-current-date');
-      if (elDate) {
-        elDate.textContent = new Date().toLocaleDateString('id-ID', {
-          day: 'numeric',
-          month: 'long',
-          year: 'numeric'
-        });
-      }
-
       // Periksa sesi pengguna
       checkAuthSession();
     });
