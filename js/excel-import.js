@@ -421,6 +421,11 @@
       window.app.closeModal('modal-import-preview');
       window.app.evaluateAndRender();
       window.app.showToast(`Berhasil menggantikan seluruh database dengan ${stagedImportData.length} catatan baru (${stagedFileName})!`, 'success');
+
+      // Auto-Sync ke Supabase Cloud di latar belakang
+      if (window.supabaseSync && typeof window.supabaseSync.pushData === 'function') {
+        window.supabaseSync.pushData().catch(e => console.warn('[Auto-Sync Supabase Warning]', e));
+      }
     } else {
       // Smart Upsert (Gabungkan & Perbarui)
       // Jika kombinasi (NIP + Tanggal) sudah ada di sistem, perbarui nilai scan/status
@@ -460,6 +465,18 @@
       window.app.closeModal('modal-import-preview');
       window.app.evaluateAndRender();
       window.app.showToast(`Berhasil menggabungkan: ${added} data baru ditambahkan, ${updated} data diperbarui!`, 'success');
+
+      // Auto-Sync ke Supabase Cloud di latar belakang
+      if (window.supabaseSync && typeof window.supabaseSync.pushData === 'function') {
+        window.supabaseSync.pushData()
+          .then(total => {
+            console.log(`[Auto-Sync Supabase] ${total} data tersimpan di Supabase.`);
+            window.app.showToast(`☁️ ${total} data otomatis tersinkronisasi ke Supabase Cloud!`, 'info');
+          })
+          .catch(e => {
+            console.warn('[Auto-Sync Supabase Warning]', e);
+          });
+      }
     }
   }
 

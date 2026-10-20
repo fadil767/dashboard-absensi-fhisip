@@ -236,6 +236,8 @@
     testConnection: handleTestConnection,
     pull: handlePull,
     push: handlePush,
+    pullData: pullFromSupabase,
+    pushData: pushToSupabase,
     getClient
   };
 
