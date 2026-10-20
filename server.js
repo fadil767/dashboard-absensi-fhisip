@@ -22,7 +22,19 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let reqPath = decodeURI(req.url.split('?')[0]);
+  const urlObj = new URL(req.url, 'http://localhost');
+  let reqPath = urlObj.searchParams.get('path');
+  if (reqPath) {
+    reqPath = '/' + reqPath;
+  } else {
+    reqPath = decodeURI(urlObj.pathname);
+  }
+
+  // Bersihkan trailing slash
+  if (reqPath.length > 1 && reqPath.endsWith('/')) {
+    reqPath = reqPath.slice(0, -1);
+  }
+
   if (reqPath === '/' || reqPath === '/landing' || reqPath === '/landing.html') reqPath = '/index.html';
   if (reqPath === '/dashboard' || reqPath === '/dashboard.html') reqPath = '/dashboard.html';
 
