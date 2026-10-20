@@ -74,6 +74,9 @@
         <button type="button" class="btn btn-outline" onclick="window.app.exportToCsv()" title="Unduh format spreadsheet CSV">
           <span>📊</span> Ekspor CSV
         </button>
+        <button type="button" class="btn btn-primary" onclick="window.monthlyReportGenerator.openExportModal()" style="background:#0F766E; border-color:#0F766E;" title="Unduh Format Rekapitulasi Kehadiran Bulanan Resmi (Excel .xlsx)">
+          <span>📑</span> Laporan Bulanan (.xlsx)
+        </button>
         <button type="button" class="btn btn-primary" onclick="window.app.exportPdf('harian')" style="background:var(--ut-blue);" title="Unduh Dokumen PDF Resmi Lengkap dengan Kop Surat FHISIP UT">
           <span>📄</span> Unduh PDF
         </button>
@@ -269,6 +272,9 @@
         </div>
       </div>
       <div class="database-action-group">
+        <button type="button" class="btn btn-primary btn-sm" onclick="window.monthlyReportGenerator.openExportModal()" style="background:#0F766E; border-color:#0F766E;" title="Buat & Unduh Laporan Rekapitulasi Kehadiran Bulanan Format Resmi (Persis Format Mesin Biometrik UT)">
+          <span>📑</span> Rekap Bulanan Resmi (.xlsx)
+        </button>
         <button type="button" class="btn btn-outline btn-sm" onclick="window.app.openDatabaseRefModal()" title="Lihat Kamus Data, Metadata, & Standarisasi Referensi">
           <span>📚</span> Kamus & Referensi Data
         </button>
@@ -1038,6 +1044,88 @@
     </div>
   </div>
 
+  <!-- =====================================================================
+       MODAL 7: UNDUH LAPORAN REKAPITULASI BULANAN (FORMAT RESMI EXCEL)
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-export-monthly" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 660px;">
+      <div class="modal-header">
+        <div>
+          <h3>📑 Ekspor Laporan Rekapitulasi Kehadiran Bulanan</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+            Menghasilkan berkas Excel (.xlsx) dengan struktur, formula, dan kop tanda tangan Dekan FHISIP UT sesuai standar resmi.
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-export-monthly')">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <form id="form-export-monthly" onsubmit="event.preventDefault(); handleExecuteMonthlyExport();">
+          <div class="form-group">
+            <label for="export-month-select">📅 Pilih Periode Bulan Laporan</label>
+            <select id="export-month-select" class="form-control" style="font-weight:600;" onchange="handleExportMonthChange(this.value)">
+              <option value="2026-09" selected>September 2026 (2.150 data presensi)</option>
+              <option value="2026-10">Oktober 2026 (948 data presensi)</option>
+              <option value="2026-11">November 2026</option>
+              <option value="2026-12">Desember 2026</option>
+            </select>
+            <small style="color:var(--text-muted); font-size:0.75rem;">Sistem akan mengagregasi data scan, hari kerja normal, keterlambatan, cuti, dan sakit.</small>
+          </div>
+
+          <div class="form-group" style="margin-top:14px;">
+            <label>👥 Format Pengelompokan Pegawai</label>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                <input type="radio" name="export-group-by" value="kategori" checked>
+                <span><strong>Standar Biometrik UT</strong> (Dikelompokkan menjadi <em>ADMINISTRASI</em> dan <em>DOSEN</em>)</span>
+              </label>
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                <input type="radio" name="export-group-by" value="prodi">
+                <span><strong>Per Program Studi / Unit Kerja</strong> (13 Prodi & Bagian Tata Usaha FHISIP UT)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:14px;">
+            <label for="export-signature-date">✍️ Tanggal Pengesahan / Tanda Tangan Laporan</label>
+            <input type="date" id="export-signature-date" class="form-control" value="2026-09-30">
+            <small style="color:var(--text-muted); font-size:0.75rem;">Akan tercantum pada blok tanda tangan Dekan FHISIP-UT (Tangerang Selatan).</small>
+          </div>
+
+          <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; padding:12px; margin-top:16px; font-size:0.8rem; color:#166534; line-height:1.45;">
+            <strong>✨ Fitur Luaran Excel Resmi:</strong>
+            <ul style="margin-left:18px; margin-top:4px;">
+              <li>Kop Laporan: <code>Laporan Rekapitulasi (FHISIP [Bulan])</code> lengkap rentang tanggal.</li>
+              <li>Kolom Standar: Nama, ID, Normal, Riil, Absen, Trlmbt, Plg. Cpt, D.Luar, Sakit, Cuti, Izin, Kehadiran, Jam Kerja.</li>
+              <li>Formula Excel Otomatis: <code>=K-M</code> untuk Riil & Kehadiran, <code>=SUM()</code> untuk Subtotal dan Grand Total.</li>
+              <li>Kop Tanda Tangan Resmi: Dekan FHISIP-UT (Dr. Meita Istianda, S.IP., M.Si. / NIP 196705191987012001).</li>
+            </ul>
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+            <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-export-monthly')">Batal</button>
+            <button type="submit" class="btn btn-primary" style="background:#0F766E; border-color:#0F766E;">
+              <span>📊</span> Unduh Laporan Excel Resmi
+            </button>
+          </div>
+        </form>
+
+        <div style="border-top:1px dashed #CBD5E1; margin-top:16px; padding-top:14px;">
+          <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">Unduhan Cepat Berkas Siap Pakai:</span>
+          <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
+            <a href="Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
+              📥 Rekapitulasi September 2026 Resmi (.xlsx)
+            </a>
+            <a href="Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
+              📥 Rekapitulasi Oktober 2026 Resmi (.xlsx)
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   <!-- Vendor Libraries for Excel, PDF, & Supabase -->
   <script src="js/vendor/xlsx.full.min.js"></script>
   <script src="js/vendor/pdfmake.min.js"></script>
@@ -1047,9 +1135,42 @@
   <!-- Application Logic Modules -->
   <script src="js/data-fhisip.js"></script>
   <script src="js/excel-import.js"></script>
+  <script src="js/excel-monthly-report.js"></script>
   <script src="js/pdf-export.js"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/app.js"></script>
+  <script>
+    function handleExportMonthChange(ymVal) {
+      const parts = ymVal.split('-');
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const lastDay = new Date(y, m, 0).getDate();
+      const elDate = document.getElementById('export-signature-date');
+      if (elDate) {
+        elDate.value = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      }
+    }
+
+    function handleExecuteMonthlyExport() {
+      const ym = document.getElementById('export-month-select').value;
+      const [y, m] = ym.split('-').map(Number);
+      const groupRadio = document.querySelector('input[name="export-group-by"]:checked');
+      const groupBy = groupRadio ? groupRadio.value : 'kategori';
+      const sigDate = document.getElementById('export-signature-date').value;
+
+      if (window.monthlyReportGenerator) {
+        window.monthlyReportGenerator.exportMonthlyExcel({
+          year: y,
+          month: m,
+          groupBy: groupBy,
+          signatureDate: sigDate
+        });
+      }
+
+      if (window.app && window.app.closeModal) {
+        window.app.closeModal('modal-export-monthly');
+      }
+    }
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       // Periksa sesi pengguna
