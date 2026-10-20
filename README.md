@@ -46,85 +46,58 @@ Dirancang dengan antarmuka yang bersih, modern, dan **sederhana** untuk memudahk
 
 ---
 
-## 🌐 Akses Lokal
+## 🌐 Akses Live & Deployment
 
-### Akses Cepat via Server (Port 3300)
+### 🚀 Production Live (Vercel)
+- **Portal Landing Page**: [https://dashboard-absensi-fhisip.vercel.app/](https://dashboard-absensi-fhisip.vercel.app/)
+- **Dashboard Presensi Interaktif**: [https://dashboard-absensi-fhisip.vercel.app/dashboard](https://dashboard-absensi-fhisip.vercel.app/dashboard)
+
+### 🐙 Repositori GitHub
+- **URL Repositori**: [https://github.com/fadil767/dashboard-absensi-fhisip](https://github.com/fadil767/dashboard-absensi-fhisip)
+- **Branch Utama**: `main`
+
+### 💻 Akses Lokal (Pengembangan)
 - **Portal Landing Page**: [http://localhost:3300/](http://localhost:3300/)
 - **Dashboard Presensi**: [http://localhost:3300/dashboard](http://localhost:3300/dashboard)
 
-### Menjalankan Server Lokal Sendiri
 ```bash
-cd dashboard-absensi-fhisip
+# Menjalankan server lokal
+npm start
+# atau
 node server.js
 ```
 
-### Buka Langsung File HTML (Tanpa Server)
-- Landing Page: `landing.html`
-- Dashboard Presensi: `index.html`
-
 ---
 
-## 🐙 1. Panduan GitHub
+## ☁️ Integrasi Supabase Cloud
 
-Repositori Git lokal telah diinisialisasi pada branch `main`.
+Aplikasi telah terhubung langsung dengan project Supabase Cloud aktif:
+- **Project URL**: `https://sxnimpyselgoenpurhhw.supabase.co`
+- **Data Tersinkronisasi**:
+  - `unit_kerja`: 13 Unit / Program Studi FHISIP UT
+  - `pengaturan_jam_kerja`: Kebijakan resmi FHISIP UT (08:30 & 16:30)
+  - `pegawai`: 121 Pegawai resmi
+  - `absensi`: 948 Catatan presensi biometrik lengkap
+- **Keamanan Kunci**:
+  - `SUPABASE_PUBLISHABLE_KEY`: Digunakan secara aman di client-side ([`js/supabase-client.js`](js/supabase-client.js)).
+  - `SUPABASE_SECRET_KEY`: Disimpan di berkas rahasia `.env` (diabaikan oleh git via `.gitignore`) dan hanya digunakan oleh script sinkronisasi database ([`sync-to-supabase.js`](sync-to-supabase.js)).
 
-Untuk menghubungkan ke GitHub Anda (`fadil767`):
-
-1. Buat repository baru di GitHub: [https://github.com/new](https://github.com/new)
-   - Nama Repository: `dashboard-absensi-fhisip`
-   - Visibilitas: *Public* atau *Private* (pilihan Anda)
-   - *Jangan centang "Initialize with a README" atau .gitignore karena sudah dibuat lokal.*
-2. Jalankan perintah berikut di terminal:
-   ```bash
-   cd C:\Users\Fadil\.gemini\antigravity-ide\scratch\dashboard-absensi-fhisip
-   git remote add origin https://github.com/fadil767/dashboard-absensi-fhisip.git
-   git push -u origin main
-   ```
-
----
-
-## ☁️ 2. Panduan Supabase (Database Cloud)
-
-Skema basis data PostgreSQL dan seed data 121 pegawai resmi FHISIP UT telah disiapkan di folder `supabase/`.
-
-### Langkah Setup Supabase:
-1. Buka [https://supabase.com](https://supabase.com) dan buat project baru (misal: `ut-fhisip-absensi`).
-2. Masuk ke menu **SQL Editor** pada dashboard Supabase.
-3. Jalankan berkas:
-   - [`supabase/schema.sql`](supabase/schema.sql) — Membuat tabel `unit_kerja`, `pegawai`, `pengaturan_jam_kerja`, `absensi`, `audit_log`, RLS, dan View.
-   - [`supabase/seed.sql`](supabase/seed.sql) — Mengisi data 13 Program Studi, 121 Pegawai, dan 948 catatan presensi.
-4. Buka menu **Project Settings → API** di Supabase untuk mendapatkan:
-   - **Project URL**
-   - **anon / public key**
-5. Buka dashboard di peramban, klik tombol **"☁️ Supabase"** di header atas, masukkan Project URL dan anon key, lalu klik **"⚡ Test Koneksi"**.
-6. Anda dapat menggunakan tombol **"⬇ Tarik Data dari Cloud"** atau **"⬆ Unggah Data Lokal ke Cloud"** untuk sinkronisasi kapan saja.
-
----
-
-## 🚀 3. Panduan Vercel (Deployment Cloud)
-
-Konfigurasi [`vercel.json`](vercel.json) telah disiapkan dengan aturan rute otomatis (`/` menuju landing page dan `/dashboard` menuju dashboard presensi) serta header keamanan.
-
-### Cara A: Deploy via GitHub (Paling Direkomendasikan)
-1. Setelah push kode ke GitHub (lihat langkah GitHub di atas).
-2. Masuk ke [https://vercel.com](https://vercel.com) dengan akun GitHub Anda.
-3. Klik **"Add New..." → "Project"**.
-4. Pilih repositori `dashboard-absensi-fhisip`.
-5. Klik **Deploy**. Website Anda akan langsung aktif dengan domain HTTPS gratis (contoh: `dashboard-absensi-fhisip.vercel.app`).
-6. Setiap kali Anda melakukan `git push`, Vercel akan otomatis meng-update deployment Anda (CI/CD otomatis)!
-
-### Cara B: Deploy Langsung via Vercel CLI di Terminal
+### Skrip Migrasi & Sinkronisasi
 ```bash
-cd C:\Users\Fadil\.gemini\antigravity-ide\scratch\dashboard-absensi-fhisip
-npx vercel
+# Menyinkronkan ulang data awal ke Supabase jika dibutuhkan
+node sync-to-supabase.js
 ```
-- Ikuti prompt di terminal:
-  - *Set up and deploy?* Ketik `y`
-  - *Which scope?* Pilih akun Vercel Anda
-  - *Link to existing project?* Ketik `n`
-  - *What's your project's name?* `dashboard-absensi-fhisip`
-  - *In which directory is your code located?* `./`
-- Untuk deploy production:
-```bash
-npx vercel --prod
-```
+
+---
+
+## 🚀 Deployment Vercel & CI/CD Otomatis
+
+Proyek ini telah dideploy di Vercel dan terhubung langsung (*Connected*) dengan repositori GitHub `fadil767/dashboard-absensi-fhisip`.
+
+- **Auto-Deploy CI/CD**: Setiap kali Anda melakukan `git push origin main`, Vercel akan secara otomatis membangun dan memperbarui website secara instan!
+- **Konfigurasi Routing**: Diatur rapi melalui [`vercel.json`](vercel.json) dengan parameter rewrites dan bundling otomatis.
+- **Deploy Manual via CLI**:
+  ```bash
+  npx vercel --prod
+  ```
+
