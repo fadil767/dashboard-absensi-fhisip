@@ -67,6 +67,14 @@ npm start
 node server.js
 ```
 
+### 🔑 Akun Login Tersedia
+| Peran / Akun | Nama Pengguna / Email | Kata Sandi | Deskripsi Hak Akses |
+| :--- | :--- | :--- | :--- |
+| **Admin FHISIP** | `admin` / `fhisip@ecampus.ut.ac.id` | `admin123` | Administrator (Akses Penuh: input, atur jam, impor/ekspor, sinkronisasi) |
+| **Dosen** | `dosen` / `dosen@ecampus.ut.ac.id` | `dosen123` | Dosen Tetap FHISIP UT (Lihat dan evaluasi presensi) |
+| **Dekanat** | `dekan` / `dekan@ecampus.ut.ac.id` | `dekan123` | Pimpinan Fakultas (Monitoring kedisiplinan dan laporan) |
+| **Tamu / Evaluator** | Tombol *"Lihat halaman publik / evaluator"* | *(Tanpa kata sandi)* | Akses langsung publik / akreditasi evaluator |
+
 ---
 
 ## ☁️ Integrasi Supabase Cloud
