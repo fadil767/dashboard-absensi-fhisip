@@ -278,10 +278,10 @@
         <button type="button" class="btn btn-outline btn-sm" onclick="window.app.openDatabaseRefModal()" title="Lihat Kamus Data, Metadata, & Standarisasi Referensi">
           <span>📚</span> Kamus & Referensi Data
         </button>
-        <a href="Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx" class="btn btn-primary btn-sm" style="background:var(--ut-navy); text-decoration:none;" title="Unduh Database September 2026 yang Sudah Diolah Bersih (.xlsx)">
+        <a href="/Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx" class="btn btn-primary btn-sm" style="background:var(--ut-navy); text-decoration:none;" title="Unduh Database September 2026 yang Sudah Diolah Bersih (.xlsx)">
           <span>📥</span> Unduh September Bersih (Excel)
         </a>
-        <a href="Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none;" title="Unduh Template Standar untuk Input Data Bulan Berikutnya (.xlsx)">
+        <a href="/Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none;" title="Unduh Template Standar untuk Input Data Bulan Berikutnya (.xlsx)">
           <span>📋</span> Template Bulan Berikutnya
         </a>
       </div>
@@ -1104,7 +1104,7 @@
 
           <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
             <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-export-monthly')">Batal</button>
-            <button type="submit" class="btn btn-primary" style="background:#0F766E; border-color:#0F766E;">
+            <button type="button" id="btn-submit-monthly-export" class="btn btn-primary" onclick="handleExecuteMonthlyExport()" style="background:#0F766E; border-color:#0F766E;">
               <span>📊</span> Unduh Laporan Excel Resmi
             </button>
           </div>
@@ -1113,10 +1113,10 @@
         <div style="border-top:1px dashed #CBD5E1; margin-top:16px; padding-top:14px;">
           <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">Unduhan Cepat Berkas Siap Pakai:</span>
           <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-            <a href="Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
+            <a href="/Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
               📥 Rekapitulasi September 2026 Resmi (.xlsx)
             </a>
-            <a href="Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
+            <a href="/Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
               📥 Rekapitulasi Oktober 2026 Resmi (.xlsx)
             </a>
           </div>
@@ -1171,6 +1171,7 @@
         window.app.closeModal('modal-export-monthly');
       }
     }
+  </script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       // Periksa sesi pengguna

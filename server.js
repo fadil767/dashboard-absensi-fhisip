@@ -40,13 +40,22 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/' || reqPath === '/landing' || reqPath === '/landing.html') reqPath = '/index.html';
   if (reqPath === '/dashboard' || reqPath === '/dashboard.html') reqPath = '/dashboard.html';
 
-  const filePath = path.join(PUBLIC_DIR, reqPath);
+  let filePath = path.join(PUBLIC_DIR, reqPath);
 
   // Security check: ensure path is within PUBLIC_DIR
   if (!filePath.startsWith(PUBLIC_DIR)) {
     res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('403 Forbidden');
     return;
+  }
+
+  // Jika file tidak ditemukan pada path yang diminta, periksa apakah file ada di root PUBLIC_DIR
+  if (!fs.existsSync(filePath)) {
+    const baseName = path.basename(reqPath);
+    const rootCandidate = path.join(PUBLIC_DIR, baseName);
+    if (fs.existsSync(rootCandidate) && fs.statSync(rootCandidate).isFile()) {
+      filePath = rootCandidate;
+    }
   }
 
   fs.stat(filePath, (err, stats) => {

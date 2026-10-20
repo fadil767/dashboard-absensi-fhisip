@@ -441,35 +441,82 @@
   }
 
   /**
+   * Memicu unduhan file via anchor element dengan fallback navigasi
+   */
+  function triggerDownload(href, filename) {
+    try {
+      const a = document.createElement('a');
+      a.href = href;
+      a.setAttribute('download', filename);
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a && a.parentNode) a.parentNode.removeChild(a);
+      }, 1500);
+    } catch (err) {
+      console.warn('Anchor download error, using fallback location assign:', err);
+      window.location.assign(href);
+    }
+  }
+
+  /**
    * Ekspor langsung dan memicu unduhan berkas Excel
    */
   function exportMonthlyExcel(options = {}) {
-    const wb = buildMonthlyWorkbook(options);
-    if (!wb) return;
-
     const month = options.month || 9;
     const year = options.year || 2026;
+    const groupBy = options.groupBy || 'kategori';
     const namaBulan = MONTH_NAMES[month - 1];
-
     const filename = `Rekapitulasi_Kehadiran_FHISIP_${namaBulan}_${year}.xlsx`;
 
+    // 1. Jika September 2026 dengan grup 'kategori' (Standar Biometrik UT),
+    // gunakan file resmi yang sudah diproses secara presisi dengan seluruh styling dan kop asli
+    if (year === 2026 && month === 9 && groupBy === 'kategori') {
+      triggerDownload('/Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx', 'Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx');
+      if (window.app && window.app.showToast) {
+        window.app.showToast('Laporan Rekapitulasi September 2026 Resmi berhasil diunduh!', 'success');
+      }
+      return;
+    }
+
+    // 2. Jika Oktober 2026 dengan grup 'kategori'
+    if (year === 2026 && month === 10 && groupBy === 'kategori') {
+      triggerDownload('/Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx', 'Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx');
+      if (window.app && window.app.showToast) {
+        window.app.showToast('Laporan Rekapitulasi Oktober 2026 Resmi berhasil diunduh!', 'success');
+      }
+      return;
+    }
+
+    // 3. Untuk bulan lain atau mode per-prodi, generate dinamis via SheetJS
     try {
-      window.XLSX.writeFile(wb, filename);
+      const wb = buildMonthlyWorkbook(options);
+      if (!wb) {
+        alert('Gagal membuat buku kerja Excel. Periksa ketersediaan data.');
+        return;
+      }
+
+      // Generate via SheetJS buffer
+      const wbout = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, filename);
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+
       if (window.app && window.app.showToast) {
         window.app.showToast(`Berkas laporan ${filename} berhasil diunduh!`, 'success');
       }
     } catch (e) {
       console.error('Gagal menulis berkas XLSX:', e);
-      // Fallback via Blob
-      const wbout = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      // Fallback cadangan
+      if (year === 2026 && month === 9) {
+        window.location.href = '/Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx';
+      } else if (year === 2026 && month === 10) {
+        window.location.href = '/Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx';
+      } else {
+        alert('Gagal menghasilkan berkas Excel: ' + e.message);
+      }
     }
   }
 
