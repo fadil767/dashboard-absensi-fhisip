@@ -1624,3 +1624,219 @@ tbody tr.highlight-telat:hover td {
   background: #DC2626;
   color: #FFF;
 }
+
+/* ==========================================================================
+   DATABASE PERIOD BANNER & SELECTOR
+   ========================================================================== */
+.database-period-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFC 100%);
+  border: 1px solid #CBD5E1;
+  border-left: 4px solid var(--ut-navy);
+  border-radius: var(--radius-lg);
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 43, 73, 0.04);
+}
+
+.period-selector-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.period-label {
+  font-size: 0.85rem;
+  color: var(--ut-navy);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.period-btn-group {
+  display: inline-flex;
+  background: #E2E8F0;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  gap: 3px;
+}
+
+.period-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.period-btn:hover {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ut-navy);
+}
+
+.period-btn.active {
+  background: #FFFFFF;
+  color: var(--ut-navy);
+  font-weight: 700;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.period-count {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #E2E8F0;
+  color: #475569;
+}
+
+.period-btn.active .period-count {
+  background: #EFF6FF;
+  color: var(--ut-blue);
+}
+
+.period-badge-new {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+  text-transform: uppercase;
+}
+
+.database-action-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ==========================================================================
+   DATABASE REFERENCE MODAL & CARDS
+   ========================================================================== */
+.db-ref-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.db-ref-card {
+  background: #F8FAFC;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px;
+}
+
+.db-ref-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.db-ref-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #EFF6FF;
+  color: var(--ut-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.db-ref-card h4 {
+  font-size: 0.95rem;
+  color: var(--ut-navy);
+  font-weight: 700;
+}
+
+.db-ref-card p {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.db-ref-stats {
+  display: flex;
+  gap: 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #CBD5E1;
+}
+
+.db-ref-stat-item span {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: block;
+}
+
+.db-ref-stat-item strong {
+  font-size: 1.05rem;
+  color: var(--ut-navy);
+  font-weight: 800;
+}
+
+.schema-table-wrap {
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+}
+
+.schema-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.schema-table th {
+  background: #F1F5F9;
+  color: var(--ut-navy);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 700;
+  border-bottom: 2px solid #CBD5E1;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.schema-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.schema-table tr:hover td {
+  background: #F8FAFC;
+}
+
+.badge-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #F1F5F9;
+  border: 1px solid #CBD5E1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  color: #0F172A;
+}
+

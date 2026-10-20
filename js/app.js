@@ -7,7 +7,7 @@
   'use strict';
 
   // --- STORAGE KEYS ---
-  const STORAGE_KEY_ABSENSI = 'ut_fhisip_absensi_data_v1';
+  const STORAGE_KEY_ABSENSI = 'ut_fhisip_absensi_data_v2';
   const STORAGE_KEY_CONFIG = 'ut_fhisip_config_v1';
 
   // --- DEFAULT CONFIGURATION (Resmi FHISIP UT) ---
@@ -30,6 +30,7 @@
       unit: '',
       kepegawaian: '', // '' | 'PNS' | 'PPPK' | 'Non-PNS'
       status: 'all', // 'all' | 'telat' | 'tepat' | 'pulang_cepat' | 'tanpa_pulang' | 'anomali' | 'izin'
+      bulan: '', // '' | '2026-09' | '2026-10'
       date: '',
       dateStart: '',
       dateEnd: '',
@@ -115,7 +116,14 @@
     try {
       const savedAbsensi = localStorage.getItem(STORAGE_KEY_ABSENSI);
       if (savedAbsensi) {
-        state.absensiList = JSON.parse(savedAbsensi);
+        const parsed = JSON.parse(savedAbsensi);
+        if (Array.isArray(parsed) && parsed.length >= (initial.absensi ? initial.absensi.length : 3000)) {
+          state.absensiList = parsed;
+        } else {
+          // If stored records are from older session with fewer rows, load full 3.098 dataset
+          state.absensiList = initial.absensi ? [...initial.absensi] : [];
+          saveAbsensi();
+        }
       } else {
         state.absensiList = initial.absensi ? [...initial.absensi] : [];
         saveAbsensi();
@@ -309,16 +317,28 @@
     // 1. Evaluasi seluruh data absensi dengan konfigurasi batas waktu aktif
     const evaluatedAll = state.absensiList.map(evaluateRecord);
 
-    // 2. Render KPI Summary Cards
-    renderStats(evaluatedAll);
+    // Hitung live counter periode
+    const septCount = state.absensiList.filter(a => a.tanggal && a.tanggal.startsWith('2026-09')).length;
+    const octCount = state.absensiList.filter(a => a.tanggal && a.tanggal.startsWith('2026-10')).length;
+    setText('count-period-all', state.absensiList.length.toLocaleString('id-ID'));
+    setText('count-period-sept', septCount.toLocaleString('id-ID'));
+    setText('count-period-oct', octCount.toLocaleString('id-ID'));
+
+    // Catatan untuk periode aktif (jika filter bulan dipilih)
+    const evaluatedForPeriod = state.filters.bulan
+      ? evaluatedAll.filter(r => r.tanggal && r.tanggal.startsWith(state.filters.bulan))
+      : evaluatedAll;
+
+    // 2. Render KPI Summary Cards berdasarkan periode yang dipilih
+    renderStats(evaluatedForPeriod);
 
     // 3. Render View berdasarkan Tab Aktif
     if (state.currentTab === 'harian') {
       renderHarianTable(evaluatedAll);
     } else if (state.currentTab === 'pegawai') {
-      renderPegawaiRekapTable(evaluatedAll);
+      renderPegawaiRekapTable(evaluatedForPeriod);
     } else if (state.currentTab === 'prodi') {
-      renderProdiRekapTable(evaluatedAll);
+      renderProdiRekapTable(evaluatedForPeriod);
     }
   }
 
@@ -402,6 +422,11 @@
   function renderHarianTable(allEvaluated) {
     // 1. Terapkan filter multi-dimensi
     let filtered = allEvaluated.filter(r => {
+      // Filter 0: Basis Bulan / Periode (September 2026 vs Oktober 2026)
+      if (state.filters.bulan && (!r.tanggal || !r.tanggal.startsWith(state.filters.bulan))) {
+        return false;
+      }
+
       // Filter 1: Pencarian (Nama Pegawai, NIP, atau Unit Kerja)
       if (state.filters.search) {
         const q = state.filters.search.toLowerCase();
@@ -647,6 +672,10 @@
       const durasiLabels = { ringan: 'Telat 1-15m', sedang: 'Telat 16-30m', berat: 'Telat >30m' };
       activeList.push({ key: 'durasiTelat', label: `Durasi: ${durasiLabels[state.filters.durasiTelat] || state.filters.durasiTelat}` });
     }
+    if (state.filters.bulan) {
+      const bLabel = state.filters.bulan === '2026-09' ? 'Periode: September 2026' : 'Periode: Oktober 2026';
+      activeList.push({ key: 'bulan', label: bLabel });
+    }
 
     if (chipsContainer) {
       chipsContainer.innerHTML = activeList.map(item => `
@@ -676,6 +705,11 @@
       state.filters.status = 'all';
       document.querySelectorAll('.status-filter-btn').forEach(b => {
         b.classList.toggle('active', b.getAttribute('data-status') === 'all');
+      });
+    } else if (key === 'bulan') {
+      state.filters.bulan = '';
+      document.querySelectorAll('.period-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-period') === 'all');
       });
     } else if (key === 'unit') {
       state.filters.unit = '';
@@ -712,6 +746,7 @@
       unit: '',
       kepegawaian: '',
       status: 'all',
+      bulan: '',
       date: '',
       dateStart: '',
       dateEnd: '',
@@ -741,6 +776,10 @@
 
     document.querySelectorAll('.status-filter-btn').forEach(b => {
       b.classList.toggle('active', b.getAttribute('data-status') === 'all');
+    });
+
+    document.querySelectorAll('.period-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-period') === 'all');
     });
 
     evaluateAndRender();
@@ -1013,6 +1052,21 @@
       btn.addEventListener('click', () => {
         const p = btn.getAttribute('data-preset');
         applyPreset(p);
+      });
+    });
+
+    // 3.5. Basis Data Periode Buttons
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const period = btn.getAttribute('data-period');
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        state.filters.bulan = (period === 'all' ? '' : period);
+        state.pagination.currentPage = 1;
+        evaluateAndRender();
+        showToast(period === 'all' 
+          ? 'Menampilkan semua periode (September & Oktober 2026 - 3.098 data)' 
+          : `Menampilkan data presensi periode ${period === '2026-09' ? 'September 2026 (2.150 data)' : 'Oktober 2026 (948 data)'}`);
       });
     });
 
@@ -1356,13 +1410,13 @@
   }
 
   function resetToDefault() {
-    if (confirm('Kembalikan seluruh data presensi ke sampel awal resmi FHISIP UT (948 data scan)? Seluruh perubahan yang dibuat akan di-reset.')) {
+    if (confirm('Kembalikan seluruh data presensi ke database resmi FHISIP UT (3.098 data scan September & Oktober)? Seluruh perubahan manual akan di-reset.')) {
       localStorage.removeItem(STORAGE_KEY_ABSENSI);
       localStorage.removeItem(STORAGE_KEY_CONFIG);
       loadConfig();
       loadData();
       evaluateAndRender();
-      showToast('Data dan konfigurasi berhasil dikembalikan ke standar awal FHISIP UT.', 'success');
+      showToast('Data dan konfigurasi berhasil disinkronkan ke database master FHISIP UT (3.098 data).', 'success');
     }
   }
 
@@ -1569,6 +1623,23 @@
     clearFilterItem,
     resetFilters,
     showToast,
+    openDatabaseRefModal: () => openModal('modal-database-ref'),
+    downloadMasterSeptember: () => {
+      const a = document.createElement('a');
+      a.href = 'Database_September_2026_Clean_FHISIP.xlsx';
+      a.download = 'Database_September_2026_Clean_FHISIP.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    },
+    downloadTemplate: () => {
+      const a = document.createElement('a');
+      a.href = 'Template_Format_Presensi_FHISIP.xlsx';
+      a.download = 'Template_Format_Presensi_FHISIP.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    },
     evaluateAndRender
   };
 

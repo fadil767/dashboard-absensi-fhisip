@@ -241,6 +241,47 @@
     </section>
 
     <!-- ===================================================================
+         BANNER SELECTOR BASIS DATABASE & PERIODE KERJA
+         =================================================================== -->
+    <div class="database-period-banner">
+      <div class="period-selector-group">
+        <span class="period-label">
+          <span style="font-size:1.1rem;">🗄️</span>
+          <strong>Basis Data Periode:</strong>
+        </span>
+        <div class="period-btn-group" id="period-filter-group" role="group" aria-label="Pilih Periode Database">
+          <button type="button" class="period-btn active" data-period="all" title="Tampilkan seluruh data terpadu (September & Oktober 2026)">
+            <span>🌟</span>
+            <span>Semua Periode</span>
+            <span class="period-count" id="count-period-all">3.098</span>
+          </button>
+          <button type="button" class="period-btn" data-period="2026-09" title="Hanya tampilkan data hasil olahan September 2026">
+            <span>📅</span>
+            <span>September 2026</span>
+            <span class="period-count" id="count-period-sept">2.150</span>
+            <span class="period-badge-new">Diolah</span>
+          </button>
+          <button type="button" class="period-btn" data-period="2026-10" title="Hanya tampilkan data berjalan Oktober 2026">
+            <span>📅</span>
+            <span>Oktober 2026</span>
+            <span class="period-count" id="count-period-oct">948</span>
+          </button>
+        </div>
+      </div>
+      <div class="database-action-group">
+        <button type="button" class="btn btn-outline btn-sm" onclick="window.app.openDatabaseRefModal()" title="Lihat Kamus Data, Metadata, & Standarisasi Referensi">
+          <span>📚</span> Kamus & Referensi Data
+        </button>
+        <a href="Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx" class="btn btn-primary btn-sm" style="background:var(--ut-navy); text-decoration:none;" title="Unduh Database September 2026 yang Sudah Diolah Bersih (.xlsx)">
+          <span>📥</span> Unduh September Bersih (Excel)
+        </a>
+        <a href="Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none;" title="Unduh Template Standar untuk Input Data Bulan Berikutnya (.xlsx)">
+          <span>📋</span> Template Bulan Berikutnya
+        </a>
+      </div>
+    </div>
+
+    <!-- ===================================================================
          VIEW TABS (NAVIGASI REKAPITULASI)
          =================================================================== -->
     <div class="view-tabs-bar">
@@ -801,6 +842,198 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-supabase')">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================================
+       MODAL 6: KAMUS DATA & REFERENSI MASTER DATABASE FHISIP UT
+       ===================================================================== -->
+  <div class="modal-overlay" id="modal-database-ref" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width: 860px;">
+      <div class="modal-header">
+        <div>
+          <h3>📚 Kamus Data & Referensi Database FHISIP UT</h3>
+          <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+            Panduan standarisasi data presensi biometrik untuk referensi pengolahan periode berikutnya.
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-database-ref')">&times;</button>
+      </div>
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+        
+        <!-- Kartu Ikhtisar Database -->
+        <div class="db-ref-grid">
+          <div class="db-ref-card" style="border-left: 4px solid var(--ut-blue);">
+            <div class="db-ref-card-header">
+              <div class="db-ref-icon">📅</div>
+              <div>
+                <h4>Database September 2026</h4>
+                <p>Hasil olah data biometrik resmi (Sheet1 & Tarikan Data Baru)</p>
+              </div>
+            </div>
+            <div class="db-ref-stats">
+              <div class="db-ref-stat-item">
+                <span>Total Presensi</span>
+                <strong style="color:var(--ut-blue);">2.150</strong>
+              </div>
+              <div class="db-ref-stat-item">
+                <span>Pegawai Aktif</span>
+                <strong>132 Org</strong>
+              </div>
+              <div class="db-ref-stat-item">
+                <span>Status</span>
+                <span class="badge-status badge-tepat" style="font-size:0.7rem; padding:2px 6px;">Ternormalisasi</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="db-ref-card" style="border-left: 4px solid #10B981;">
+            <div class="db-ref-card-header">
+              <div class="db-ref-icon" style="background:#ECFDF5; color:#10B981;">📅</div>
+              <div>
+                <h4>Database Oktober 2026</h4>
+                <p>Data presensi berjalan operasional FHISIP UT</p>
+              </div>
+            </div>
+            <div class="db-ref-stats">
+              <div class="db-ref-stat-item">
+                <span>Total Presensi</span>
+                <strong style="color:#10B981;">948</strong>
+              </div>
+              <div class="db-ref-stat-item">
+                <span>Pegawai Aktif</span>
+                <strong>121 Org</strong>
+              </div>
+              <div class="db-ref-stat-item">
+                <span>Status</span>
+                <span class="badge-status badge-tepat" style="font-size:0.7rem; padding:2px 6px;">Operasional</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="db-ref-card" style="border-left: 4px solid var(--ut-gold);">
+            <div class="db-ref-card-header">
+              <div class="db-ref-icon" style="background:var(--ut-gold-light); color:#92400E;">🏛</div>
+              <div>
+                <h4>13 Unit Resmi FHISIP</h4>
+                <p>Dekanat, 3 Bagian TU, dan 9 Program Studi S1</p>
+              </div>
+            </div>
+            <div class="db-ref-stats">
+              <div class="db-ref-stat-item">
+                <span>Master Pegawai</span>
+                <strong style="color:var(--ut-navy);">135 Pegawai</strong>
+              </div>
+              <div class="db-ref-stat-item">
+                <span>Total Semua Data</span>
+                <strong>3.098 Data</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Standarisasi Format Kolom (Kamus Data) -->
+        <h4 style="font-size:0.9rem; color:var(--ut-navy); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+          <span>📋</span> Standarisasi Struktur Kolom (Kamus Data Sistem)
+        </h4>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
+          Gunakan susunan dan format nilai kolom berikut saat menyiapkan data bulan berikutnya agar dapat terbaca otomatis oleh sistem tanpa error:
+        </p>
+        
+        <div class="schema-table-wrap">
+          <table class="schema-table">
+            <thead>
+              <tr>
+                <th style="width:140px;">Nama Kolom</th>
+                <th style="width:130px;">Tipe / Format</th>
+                <th style="width:75px;">Wajib</th>
+                <th style="width:170px;">Contoh Nilai</th>
+                <th>Keterangan Sistem</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Tanggal</strong></td>
+                <td><span class="badge-code">YYYY-MM-DD</span></td>
+                <td><span style="color:var(--danger); font-weight:700;">Wajib</span></td>
+                <td><span class="badge-code">2026-11-02</span></td>
+                <td>Format standar ISO tanggal (Tahun-Bulan-Hari).</td>
+              </tr>
+              <tr>
+                <td><strong>NIP</strong></td>
+                <td><span class="badge-code">Teks / Angka</span></td>
+                <td><span style="color:var(--danger); font-weight:700;">Wajib</span></td>
+                <td><span class="badge-code">199305122009031148</span></td>
+                <td>Nomor Induk Pegawai 18 digit resmi atau ID Biometrik unik.</td>
+              </tr>
+              <tr>
+                <td><strong>Nama Lengkap</strong></td>
+                <td><span class="badge-code">Teks</span></td>
+                <td><span style="color:var(--danger); font-weight:700;">Wajib</span></td>
+                <td><span class="badge-code">Acep Surya</span></td>
+                <td>Nama pegawai beserta gelar akademik bila ada.</td>
+              </tr>
+              <tr>
+                <td><strong>Program Studi / Unit Kerja</strong></td>
+                <td><span class="badge-code">Teks Pilihan</span></td>
+                <td><span style="color:var(--danger); font-weight:700;">Wajib</span></td>
+                <td><span class="badge-code">Program Studi S1 Ilmu Komunikasi</span></td>
+                <td>Harus memilih salah satu dari 13 unit kerja resmi FHISIP UT.</td>
+              </tr>
+              <tr>
+                <td><strong>Jam Masuk</strong></td>
+                <td><span class="badge-code">HH:MM</span></td>
+                <td>Opsional</td>
+                <td><span class="badge-code">08:14</span></td>
+                <td>Waktu tap masuk biometrik format 24 jam (kosongkan jika cuti/sakit).</td>
+              </tr>
+              <tr>
+                <td><strong>Jam Pulang</strong></td>
+                <td><span class="badge-code">HH:MM</span></td>
+                <td>Opsional</td>
+                <td><span class="badge-code">16:45</span></td>
+                <td>Waktu tap kepulangan format 24 jam.</td>
+              </tr>
+              <tr>
+                <td><strong>Status Kehadiran</strong></td>
+                <td><span class="badge-code">Kategori</span></td>
+                <td><span style="color:var(--danger); font-weight:700;">Wajib</span></td>
+                <td><span class="badge-code">Hadir</span></td>
+                <td>Pilihan nilai baku: <em>Hadir, Cuti, Sakit, Izin, Dinas Luar</em>.</td>
+              </tr>
+              <tr>
+                <td><strong>Keterangan</strong></td>
+                <td><span class="badge-code">Teks Bebas</span></td>
+                <td>Opsional</td>
+                <td><span class="badge-code">Work From Home (WFH)</span></td>
+                <td>Catatan administrasi tambahan (WFH, Cuti Bersama, dll).</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Download Buttons Reference Section -->
+        <div style="background:#F1F5F9; border:1px solid #CBD5E1; border-radius:8px; padding:14px; margin-top:14px;">
+          <h4 style="font-size:0.88rem; color:var(--ut-navy); margin-bottom:8px;">
+            📥 Berkas Referensi Siap Unduh untuk Pengolahan Lanjutan:
+          </h4>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <a href="Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx" class="btn btn-primary btn-sm" style="text-decoration:none;">
+              <span>📊</span> Unduh Master September 2026 Bersih (.xlsx)
+            </a>
+            <a href="Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none; background:#FFF;">
+              <span>📋</span> Unduh Template Format Presensi (.xlsx)
+            </a>
+            <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportToCsv(false)" style="background:#FFF;">
+              <span>📁</span> Unduh Database Terpadu Semua Bulan (CSV)
+            </button>
+          </div>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" onclick="window.app.closeModal('modal-database-ref')">Tutup Panduan</button>
       </div>
     </div>
   </div>
