@@ -6,7 +6,7 @@
   ],
   "functions": {
     "server.js": {
-      "includeFiles": "{index.html,dashboard.html,css/**,js/**,assets/**,supabase/**}"
+      "includeFiles": "{index.html,dashboard.html,css/**,js/**,assets/**,supabase/**,*.xlsx,*.csv}"
     }
   },
 
