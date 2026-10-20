@@ -143,6 +143,11 @@
       localStorage.setItem(STORAGE_KEY_ABSENSI, JSON.stringify(state.absensiList));
     } catch (e) {
       console.warn('Gagal menyimpan data absensi ke localStorage:', e);
+      if (e.name === 'QuotaExceededError' || e.code === 22 || e.number === -2147024882) {
+        if (typeof showToast === 'function') {
+          showToast('Kapasitas penyimpanan lokal browser hampir penuh (>5MB). Sangat disarankan sinkronisasi ke Supabase Cloud atau cadangkan berkas Excel.', 'warning');
+        }
+      }
     }
   }
 

@@ -418,28 +418,49 @@
         return;
       }
       window.app.setAbsensiList([...stagedImportData]);
+      window.app.closeModal('modal-import-preview');
+      window.app.evaluateAndRender();
+      window.app.showToast(`Berhasil menggantikan seluruh database dengan ${stagedImportData.length} catatan baru (${stagedFileName})!`, 'success');
     } else {
-      // Append mode: gabungkan
+      // Smart Upsert (Gabungkan & Perbarui)
+      // Jika kombinasi (NIP + Tanggal) sudah ada di sistem, perbarui nilai scan/status
+      // Jika belum ada, masukkan sebagai baris baru
       const current = window.app.getAbsensiList();
-      const existingKeys = new Set(current.map(c => `${c.nip}|${c.tanggal}`));
+      const keyMap = new Map();
+      current.forEach((item, index) => {
+        keyMap.set(`${item.nip}|${item.tanggal}`, index);
+      });
+
       let added = 0;
+      let updated = 0;
       const combined = [...current];
 
       stagedImportData.forEach(item => {
         const key = `${item.nip}|${item.tanggal}`;
-        if (!existingKeys.has(key)) {
+        if (keyMap.has(key)) {
+          // Perbarui data yang sudah ada (misal revisi jam tap atau status izin/cuti)
+          const idx = keyMap.get(key);
+          combined[idx] = {
+            ...combined[idx],
+            jam_masuk: item.jam_masuk !== null ? item.jam_masuk : combined[idx].jam_masuk,
+            jam_pulang: item.jam_pulang !== null ? item.jam_pulang : combined[idx].jam_pulang,
+            status_kehadiran: item.status_kehadiran || combined[idx].status_kehadiran,
+            keterangan: item.keterangan || combined[idx].keterangan
+          };
+          updated++;
+        } else {
+          // Tambahkan baris baru
           combined.push(item);
-          existingKeys.add(key);
+          keyMap.set(key, combined.length - 1);
           added++;
         }
       });
 
       window.app.setAbsensiList(combined);
+      window.app.closeModal('modal-import-preview');
+      window.app.evaluateAndRender();
+      window.app.showToast(`Berhasil menggabungkan: ${added} data baru ditambahkan, ${updated} data diperbarui!`, 'success');
     }
-
-    window.app.closeModal('modal-import-preview');
-    window.app.evaluateAndRender();
-    window.app.showToast(`Berhasil mengimpor ${stagedImportData.length} data presensi (${stagedFileName})!`, 'success');
   }
 
   function showLoading(show) {
