@@ -28,14 +28,19 @@
     filters: {
       search: '',
       unit: '',
-      status: 'all', // 'all' | 'telat' | 'tepat' | 'pulang_cepat' | 'izin'
+      kepegawaian: '', // '' | 'PNS' | 'PPPK' | 'Non-PNS'
+      status: 'all', // 'all' | 'telat' | 'tepat' | 'pulang_cepat' | 'tanpa_pulang' | 'anomali' | 'izin'
       date: '',
-      sort: 'telat_desc' // 'telat_desc' | 'nama_asc' | 'masuk_asc' | 'tanggal_desc'
+      dateStart: '',
+      dateEnd: '',
+      durasiTelat: '', // '' | 'ringan' | 'sedang' | 'berat'
+      sort: 'telat_desc' // 'telat_desc' | 'telat_asc' | 'masuk_asc' | 'masuk_desc' | 'pulang_asc' | 'tanggal_desc' | 'tanggal_asc' | 'nama_asc' | 'nama_desc'
     },
     pagination: {
       currentPage: 1,
       pageSize: 25
     },
+    lastFilteredRecords: [],
     editingRecordId: null
   };
 
@@ -145,11 +150,28 @@
 
   function populateDateDropdown() {
     const select = document.getElementById('filter-date');
-    if (!select) return;
+    const elStart = document.getElementById('filter-date-start');
+    const elEnd = document.getElementById('filter-date-end');
 
     const dates = [...new Set(state.absensiList.map(a => a.tanggal).filter(Boolean))].sort().reverse();
-    select.innerHTML = '<option value="">Semua Tanggal Periode</option>' +
-      dates.map(d => `<option value="${d}">${formatTanggalIndo(d)}</option>`).join('');
+
+    if (select) {
+      select.innerHTML = '<option value="">Semua Tanggal Periode</option>' +
+        dates.map(d => `<option value="${d}">${formatTanggalIndo(d)}</option>`).join('');
+    }
+
+    if (dates.length > 0) {
+      const minDate = dates[dates.length - 1];
+      const maxDate = dates[0];
+      if (elStart) {
+        elStart.min = minDate;
+        elStart.max = maxDate;
+      }
+      if (elEnd) {
+        elEnd.min = minDate;
+        elEnd.max = maxDate;
+      }
+    }
   }
 
   function populatePegawaiSelect() {
@@ -201,22 +223,37 @@
     let menitTerlambat = 0;
     let isPulangCepat = false;
     let menitPulangCepat = 0;
+    let isTanpaPulang = false;
+    let isTanpaMasuk = false;
 
-    // Evaluasi jam masuk
-    if (recordMasukMin !== null && configMasukMin !== null) {
-      if (recordMasukMin > batasMasukEfektif) {
-        isTerlambat = true;
-        menitTerlambat = recordMasukMin - configMasukMin; // Dihitung dari batas resmi
+    // Evaluasi jam masuk & kepulangan
+    if (record.status_kehadiran && record.status_kehadiran !== 'Hadir') {
+      // Dispensasi resmi (Dinas Luar, Izin, Cuti, Sakit dsb)
+      isTerlambat = false;
+      isPulangCepat = false;
+    } else {
+      // Evaluasi jam masuk
+      if (recordMasukMin !== null && configMasukMin !== null) {
+        if (recordMasukMin > batasMasukEfektif) {
+          isTerlambat = true;
+          menitTerlambat = recordMasukMin - configMasukMin; // Dihitung dari batas resmi
+        }
+      } else {
+        isTanpaMasuk = true;
+      }
+
+      // Evaluasi jam pulang
+      if (recordPulangMin !== null && configPulangMin !== null) {
+        if (recordPulangMin < configPulangMin) {
+          isPulangCepat = true;
+          menitPulangCepat = configPulangMin - recordPulangMin;
+        }
+      } else {
+        isTanpaPulang = true;
       }
     }
 
-    // Evaluasi jam pulang
-    if (recordPulangMin !== null && configPulangMin !== null) {
-      if (recordPulangMin < configPulangMin) {
-        isPulangCepat = true;
-        menitPulangCepat = configPulangMin - recordPulangMin;
-      }
-    }
+    const isAnomali = isTerlambat || isPulangCepat || isTanpaPulang || isTanpaMasuk || (record.status_kehadiran === 'Alpha');
 
     // Label Status
     let statusLabel = 'Tepat Waktu';
@@ -239,6 +276,12 @@
       } else if (isPulangCepat) {
         statusLabel = 'Pulang Lebih Awal';
         statusBadgeClass = 'badge-pulang-cepat';
+      } else if (isTanpaPulang && !isTanpaMasuk) {
+        statusLabel = 'Belum Scan Pulang';
+        statusBadgeClass = 'badge-warning';
+      } else if (isTanpaMasuk && !isTanpaPulang) {
+        statusLabel = 'Tanpa Scan Masuk';
+        statusBadgeClass = 'badge-warning';
       } else {
         statusLabel = 'Tepat Waktu';
         statusBadgeClass = 'badge-tepat';
@@ -251,6 +294,9 @@
       menitTerlambat,
       isPulangCepat,
       menitPulangCepat,
+      isTanpaPulang,
+      isTanpaMasuk,
+      isAnomali,
       statusLabel,
       statusBadgeClass
     };
@@ -284,6 +330,8 @@
     let pulangCepatCount = 0;
     let totalMenitTelat = 0;
     let izinCount = 0;
+    let tanpaPulangCount = 0;
+    let anomaliCount = 0;
 
     records.forEach(r => {
       if (r.status_kehadiran && r.status_kehadiran !== 'Hadir') {
@@ -299,6 +347,13 @@
         if (r.isPulangCepat) {
           pulangCepatCount++;
         }
+        if (r.isTanpaPulang) {
+          tanpaPulangCount++;
+        }
+      }
+
+      if (r.isAnomali) {
+        anomaliCount++;
       }
     });
 
@@ -306,7 +361,7 @@
     const persenTelat = totalRecords > 0 ? ((telatCount / totalRecords) * 100).toFixed(1) : 0;
     const rataMenitTelat = telatCount > 0 ? Math.round(totalMenitTelat / telatCount) : 0;
 
-    // Update DOM
+    // Update DOM KPI Cards
     setText('stat-total-records', totalRecords.toLocaleString('id-ID'));
     setText('stat-tepat-count', tepatCount.toLocaleString('id-ID'));
     setText('stat-tepat-pct', `${persenTepat}% Tepat Waktu`);
@@ -322,6 +377,15 @@
     // Tab badges
     setText('tab-count-harian', totalRecords);
     setText('tab-count-pegawai', state.pegawaiList.length);
+
+    // Update Quick Filter Button Pill Counts
+    setText('count-status-all', totalRecords.toLocaleString('id-ID'));
+    setText('count-status-telat', telatCount.toLocaleString('id-ID'));
+    setText('count-status-tepat', tepatCount.toLocaleString('id-ID'));
+    setText('count-status-pulang-cepat', pulangCepatCount.toLocaleString('id-ID'));
+    setText('count-status-tanpa-pulang', tanpaPulangCount.toLocaleString('id-ID'));
+    setText('count-status-anomali', anomaliCount.toLocaleString('id-ID'));
+    setText('count-status-izin', izinCount.toLocaleString('id-ID'));
   }
 
   function setText(id, text) {
@@ -336,50 +400,99 @@
 
   // --- TAB 1: LOG PRESENSI HARIAN ---
   function renderHarianTable(allEvaluated) {
-    // 1. Terapkan filter
+    // 1. Terapkan filter multi-dimensi
     let filtered = allEvaluated.filter(r => {
-      // Search: nama atau NIP
+      // Filter 1: Pencarian (Nama Pegawai, NIP, atau Unit Kerja)
       if (state.filters.search) {
         const q = state.filters.search.toLowerCase();
         const nama = (r.nama_lengkap || '').toLowerCase();
         const nip = (r.nip || '').toLowerCase();
-        if (!nama.includes(q) && !nip.includes(q)) return false;
+        const unit = (r.unit_kerja || '').toLowerCase();
+        if (!nama.includes(q) && !nip.includes(q) && !unit.includes(q)) return false;
       }
 
-      // Filter Unit
+      // Filter 2: Program Studi / Bagian
       if (state.filters.unit && r.unit_kerja !== state.filters.unit) {
         return false;
       }
 
-      // Filter Tanggal
+      // Filter 3: Status Kepegawaian (PNS / PPPK / Non-PNS)
+      if (state.filters.kepegawaian) {
+        const emp = state.pegawaiList.find(p => p.nip === r.nip) || {};
+        if (emp.status_kepegawaian !== state.filters.kepegawaian) return false;
+      }
+
+      // Filter 4: Tanggal Spesifik
       if (state.filters.date && r.tanggal !== state.filters.date) {
         return false;
       }
 
-      // Filter Status
-      if (state.filters.status === 'telat' && !r.isTerlambat) return false;
-      if (state.filters.status === 'tepat' && (r.isTerlambat || (r.status_kehadiran && r.status_kehadiran !== 'Hadir'))) return false;
-      if (state.filters.status === 'pulang_cepat' && !r.isPulangCepat) return false;
-      if (state.filters.status === 'izin' && r.status_kehadiran === 'Hadir') return false;
+      // Filter 5: Rentang Tanggal (Date Range)
+      if (state.filters.dateStart && r.tanggal < state.filters.dateStart) {
+        return false;
+      }
+      if (state.filters.dateEnd && r.tanggal > state.filters.dateEnd) {
+        return false;
+      }
+
+      // Filter 6: Durasi Keterlambatan
+      if (state.filters.durasiTelat) {
+        if (!r.isTerlambat) return false;
+        if (state.filters.durasiTelat === 'ringan' && r.menitTerlambat > 15) return false;
+        if (state.filters.durasiTelat === 'sedang' && (r.menitTerlambat < 16 || r.menitTerlambat > 30)) return false;
+        if (state.filters.durasiTelat === 'berat' && r.menitTerlambat <= 30) return false;
+      }
+
+      // Filter 7: Status Disiplin & Kehadiran
+      if (state.filters.status === 'telat') {
+        if (!r.isTerlambat) return false;
+      } else if (state.filters.status === 'tepat') {
+        if (r.isTerlambat || (r.status_kehadiran && r.status_kehadiran !== 'Hadir')) return false;
+      } else if (state.filters.status === 'pulang_cepat') {
+        if (!r.isPulangCepat) return false;
+      } else if (state.filters.status === 'tanpa_pulang') {
+        if (!r.isTanpaPulang) return false;
+      } else if (state.filters.status === 'anomali') {
+        if (!r.isAnomali) return false;
+      } else if (state.filters.status === 'izin') {
+        if (r.status_kehadiran === 'Hadir') return false;
+      }
 
       return true;
     });
 
-    // 2. Sorting
+    state.lastFilteredRecords = filtered;
+
+    // 2. Sorting Multi-Opsi
     filtered.sort((a, b) => {
-      if (state.filters.sort === 'telat_desc') {
-        return b.menitTerlambat - a.menitTerlambat;
-      } else if (state.filters.sort === 'nama_asc') {
-        return (a.nama_lengkap || '').localeCompare(b.nama_lengkap || '');
-      } else if (state.filters.sort === 'masuk_asc') {
-        return (a.jam_masuk || '99:99').localeCompare(b.jam_masuk || '99:99');
-      } else if (state.filters.sort === 'tanggal_desc') {
-        return (b.tanggal || '').localeCompare(a.tanggal || '');
+      switch (state.filters.sort) {
+        case 'telat_desc':
+          return b.menitTerlambat - a.menitTerlambat;
+        case 'telat_asc':
+          return a.menitTerlambat - b.menitTerlambat;
+        case 'masuk_asc':
+          return (a.jam_masuk || '99:99').localeCompare(b.jam_masuk || '99:99');
+        case 'masuk_desc':
+          return (b.jam_masuk || '00:00').localeCompare(a.jam_masuk || '00:00');
+        case 'pulang_asc':
+          return (a.jam_pulang || '99:99').localeCompare(b.jam_pulang || '99:99');
+        case 'tanggal_desc':
+          return (b.tanggal || '').localeCompare(a.tanggal || '');
+        case 'tanggal_asc':
+          return (a.tanggal || '').localeCompare(b.tanggal || '');
+        case 'nama_asc':
+          return (a.nama_lengkap || '').localeCompare(b.nama_lengkap || '');
+        case 'nama_desc':
+          return (b.nama_lengkap || '').localeCompare(a.nama_lengkap || '');
+        default:
+          return 0;
       }
-      return 0;
     });
 
-    // 3. Pagination
+    // 3. Render Active Filter Tags & Count Summary
+    renderActiveFilterSummary(allEvaluated.length, filtered.length);
+
+    // 4. Pagination
     const totalItems = filtered.length;
     const pageSize = state.pagination.pageSize;
     const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -389,7 +502,7 @@
     const startIndex = (state.pagination.currentPage - 1) * pageSize;
     const pageItems = filtered.slice(startIndex, startIndex + pageSize);
 
-    // 4. Render Table
+    // 5. Render Table Body
     const tbody = document.getElementById('table-body-harian');
     if (!tbody) return;
 
@@ -399,8 +512,11 @@
           <td colspan="8">
             <div class="empty-state">
               <div class="empty-state-icon">🔍</div>
-              <h3>Tidak ada data presensi yang sesuai</h3>
-              <p>Coba sesuaikan kata kunci pencarian, filter status, atau batas waktu keterlambatan.</p>
+              <h3>Tidak ada data presensi yang sesuai kriteria</h3>
+              <p>Coba sesuaikan kata kunci pencarian, filter status, atau klik tombol Reset Filter di bawah.</p>
+              <button type="button" class="btn btn-outline btn-sm" onclick="window.app.resetFilters()" style="margin-top:10px;">
+                🔄 Reset Semua Filter
+              </button>
             </div>
           </td>
         </tr>
@@ -421,12 +537,16 @@
       let masukPill = `<span class="time-pill">${r.jam_masuk || '-'}</span>`;
       if (r.isTerlambat) {
         masukPill = `<span class="time-pill time-danger">${r.jam_masuk} (+${r.menitTerlambat}m)</span>`;
+      } else if (!r.jam_masuk && r.status_kehadiran === 'Hadir') {
+        masukPill = `<span class="time-pill time-warning" title="Belum / tidak ada scan masuk">Kosong ⚠️</span>`;
       }
 
       // Jam Pulang Pill
       let pulangPill = `<span class="time-pill">${r.jam_pulang || '-'}</span>`;
       if (r.isPulangCepat) {
         pulangPill = `<span class="time-pill time-warning">${r.jam_pulang} (-${r.menitPulangCepat}m)</span>`;
+      } else if (!r.jam_pulang && r.status_kehadiran === 'Hadir') {
+        pulangPill = `<span class="time-pill" style="background:#FFFBEB; color:#B45309; border:1px solid #FDE68A;" title="Belum melakukan scan keluar">Belum Scan ⏳</span>`;
       }
 
       return `
@@ -470,6 +590,161 @@
     }).join('');
 
     renderPagination(totalItems, startIndex + 1, Math.min(startIndex + pageSize, totalItems), totalPages);
+  }
+
+  // --- ACTIVE FILTER SUMMARY & CHIPS ---
+  function renderActiveFilterSummary(totalAll, totalFiltered) {
+    const elCount = document.getElementById('summary-match-count');
+    if (elCount) {
+      elCount.innerHTML = `Menampilkan <strong>${totalFiltered.toLocaleString('id-ID')}</strong> dari <strong>${totalAll.toLocaleString('id-ID')}</strong> catatan presensi`;
+    }
+
+    const chipsContainer = document.getElementById('active-filter-chips');
+    const badgeActiveCount = document.getElementById('badge-active-filter-count');
+    const btnReset = document.getElementById('btn-reset-filter');
+    const btnClearSearch = document.getElementById('btn-clear-search');
+    const btnClearDateRange = document.getElementById('btn-clear-date-range');
+
+    if (btnClearSearch) {
+      btnClearSearch.style.display = state.filters.search ? 'flex' : 'none';
+    }
+    if (btnClearDateRange) {
+      btnClearDateRange.style.display = (state.filters.dateStart || state.filters.dateEnd) ? 'inline-block' : 'none';
+    }
+
+    const activeList = [];
+
+    if (state.filters.search) {
+      activeList.push({ key: 'search', label: `Cari: "${state.filters.search}"` });
+    }
+    if (state.filters.status && state.filters.status !== 'all') {
+      const statusLabels = {
+        telat: '🚨 Terlambat',
+        tepat: '✅ Tepat Waktu',
+        pulang_cepat: '⏳ Pulang Cepat',
+        tanpa_pulang: '⚠️ Belum Scan Pulang',
+        anomali: '⚡ Semua Pelanggaran',
+        izin: '📄 Izin / Dinas'
+      };
+      activeList.push({ key: 'status', label: `Status: ${statusLabels[state.filters.status] || state.filters.status}` });
+    }
+    if (state.filters.unit) {
+      activeList.push({ key: 'unit', label: `Unit: ${state.filters.unit}` });
+    }
+    if (state.filters.kepegawaian) {
+      activeList.push({ key: 'kepegawaian', label: `Kepegawaian: ${state.filters.kepegawaian}` });
+    }
+    if (state.filters.date) {
+      activeList.push({ key: 'date', label: `Tanggal: ${formatTanggalIndo(state.filters.date)}` });
+    }
+    if (state.filters.dateStart || state.filters.dateEnd) {
+      activeList.push({
+        key: 'dateRange',
+        label: `Rentang: ${state.filters.dateStart || 'Awal'} s/d ${state.filters.dateEnd || 'Akhir'}`
+      });
+    }
+    if (state.filters.durasiTelat) {
+      const durasiLabels = { ringan: 'Telat 1-15m', sedang: 'Telat 16-30m', berat: 'Telat >30m' };
+      activeList.push({ key: 'durasiTelat', label: `Durasi: ${durasiLabels[state.filters.durasiTelat] || state.filters.durasiTelat}` });
+    }
+
+    if (chipsContainer) {
+      chipsContainer.innerHTML = activeList.map(item => `
+        <span class="filter-chip">
+          <span>${escapeHtml(item.label)}</span>
+          <button type="button" class="filter-chip-remove" onclick="window.app.clearFilterItem('${item.key}')" title="Hapus filter ini">✕</button>
+        </span>
+      `).join('');
+    }
+
+    const activeCount = activeList.length;
+    if (badgeActiveCount) {
+      badgeActiveCount.textContent = activeCount;
+      badgeActiveCount.style.display = activeCount > 0 ? 'inline-block' : 'none';
+    }
+    if (btnReset) {
+      btnReset.style.display = activeCount > 0 ? 'inline-flex' : 'none';
+    }
+  }
+
+  function clearFilterItem(key) {
+    if (key === 'search') {
+      state.filters.search = '';
+      const el = document.getElementById('filter-search');
+      if (el) el.value = '';
+    } else if (key === 'status') {
+      state.filters.status = 'all';
+      document.querySelectorAll('.status-filter-btn').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-status') === 'all');
+      });
+    } else if (key === 'unit') {
+      state.filters.unit = '';
+      const el = document.getElementById('filter-unit');
+      if (el) el.value = '';
+    } else if (key === 'kepegawaian') {
+      state.filters.kepegawaian = '';
+      const el = document.getElementById('filter-kepegawaian');
+      if (el) el.value = '';
+    } else if (key === 'date') {
+      state.filters.date = '';
+      const el = document.getElementById('filter-date');
+      if (el) el.value = '';
+    } else if (key === 'dateRange') {
+      state.filters.dateStart = '';
+      state.filters.dateEnd = '';
+      const elStart = document.getElementById('filter-date-start');
+      const elEnd = document.getElementById('filter-date-end');
+      if (elStart) elStart.value = '';
+      if (elEnd) elEnd.value = '';
+    } else if (key === 'durasiTelat') {
+      state.filters.durasiTelat = '';
+      const el = document.getElementById('filter-durasi-telat');
+      if (el) el.value = '';
+    }
+
+    state.pagination.currentPage = 1;
+    evaluateAndRender();
+  }
+
+  function resetFilters() {
+    state.filters = {
+      search: '',
+      unit: '',
+      kepegawaian: '',
+      status: 'all',
+      date: '',
+      dateStart: '',
+      dateEnd: '',
+      durasiTelat: '',
+      sort: 'telat_desc'
+    };
+    state.pagination.currentPage = 1;
+
+    // Reset Form Input DOM
+    const elSearch = document.getElementById('filter-search');
+    const elUnit = document.getElementById('filter-unit');
+    const elKepeg = document.getElementById('filter-kepegawaian');
+    const elDate = document.getElementById('filter-date');
+    const elDateStart = document.getElementById('filter-date-start');
+    const elDateEnd = document.getElementById('filter-date-end');
+    const elDurasi = document.getElementById('filter-durasi-telat');
+    const elSort = document.getElementById('filter-sort');
+
+    if (elSearch) elSearch.value = '';
+    if (elUnit) elUnit.value = '';
+    if (elKepeg) elKepeg.value = '';
+    if (elDate) elDate.value = '';
+    if (elDateStart) elDateStart.value = '';
+    if (elDateEnd) elDateEnd.value = '';
+    if (elDurasi) elDurasi.value = '';
+    if (elSort) elSort.value = 'telat_desc';
+
+    document.querySelectorAll('.status-filter-btn').forEach(b => {
+      b.classList.toggle('active', b.getAttribute('data-status') === 'all');
+    });
+
+    evaluateAndRender();
+    showToast('Semua filter berhasil dikembalikan ke standar awal.');
   }
 
   function renderPagination(total, from, to, totalPages) {
@@ -754,17 +1029,36 @@
         document.getElementById('view-prodi').style.display = state.currentTab === 'prodi' ? 'block' : 'none';
 
         // Adjust toolbar filters
-        const elDateFilter = document.getElementById('filter-date');
-        const elStatusFilter = document.querySelector('.quick-status-filter');
-        if (elDateFilter) elDateFilter.style.display = state.currentTab === 'harian' ? 'inline-block' : 'none';
-        if (elStatusFilter) elStatusFilter.style.display = state.currentTab === 'harian' ? 'flex' : 'none';
+        const elStatusFilter = document.getElementById('quick-status-group');
+        const elActionGroup = document.querySelector('.filter-action-group');
+        const elDrawer = document.getElementById('advanced-filter-drawer');
+        const elSummary = document.getElementById('filter-summary-bar');
+        const elSection = document.getElementById('filter-dashboard-section');
+
+        if (state.currentTab === 'harian') {
+          if (elSection) elSection.style.display = 'flex';
+          if (elStatusFilter) elStatusFilter.style.display = 'flex';
+          if (elActionGroup) elActionGroup.style.display = 'flex';
+          if (elDrawer) elDrawer.style.display = '';
+          if (elSummary) elSummary.style.display = 'flex';
+        } else if (state.currentTab === 'pegawai') {
+          if (elSection) elSection.style.display = 'flex';
+          if (elStatusFilter) elStatusFilter.style.display = 'none';
+          if (elActionGroup) elActionGroup.style.display = 'none';
+          if (elDrawer) elDrawer.style.display = 'none';
+          if (elSummary) elSummary.style.display = 'none';
+        } else {
+          if (elSection) elSection.style.display = 'none';
+        }
 
         evaluateAndRender();
       });
     });
 
-    // 5. Search & Filters
+    // 5. Search Input & Clear Search
     const elSearch = document.getElementById('filter-search');
+    const btnClearSearch = document.getElementById('btn-clear-search');
+
     if (elSearch) {
       elSearch.addEventListener('input', debounce((e) => {
         state.filters.search = e.target.value.trim();
@@ -773,6 +1067,13 @@
       }, 200));
     }
 
+    if (btnClearSearch) {
+      btnClearSearch.addEventListener('click', () => {
+        clearFilterItem('search');
+      });
+    }
+
+    // 6. Filter Program Studi / Unit
     const elUnit = document.getElementById('filter-unit');
     if (elUnit) {
       elUnit.addEventListener('change', (e) => {
@@ -782,15 +1083,81 @@
       });
     }
 
-    const elDate = document.getElementById('filter-date');
-    if (elDate) {
-      elDate.addEventListener('change', (e) => {
-        state.filters.date = e.target.value;
+    // 7. Filter Status Kepegawaian (PNS / PPPK / Non-PNS)
+    const elKepeg = document.getElementById('filter-kepegawaian');
+    if (elKepeg) {
+      elKepeg.addEventListener('change', (e) => {
+        state.filters.kepegawaian = e.target.value;
         state.pagination.currentPage = 1;
         evaluateAndRender();
       });
     }
 
+    // 8. Filter Tanggal Spesifik
+    const elDate = document.getElementById('filter-date');
+    if (elDate) {
+      elDate.addEventListener('change', (e) => {
+        state.filters.date = e.target.value;
+        if (state.filters.date) {
+          // Kosongkan rentang tanggal jika tanggal spesifik dipilih
+          state.filters.dateStart = '';
+          state.filters.dateEnd = '';
+          const elStart = document.getElementById('filter-date-start');
+          const elEnd = document.getElementById('filter-date-end');
+          if (elStart) elStart.value = '';
+          if (elEnd) elEnd.value = '';
+        }
+        state.pagination.currentPage = 1;
+        evaluateAndRender();
+      });
+    }
+
+    // 9. Filter Rentang Tanggal (Date Range)
+    const elDateStart = document.getElementById('filter-date-start');
+    const elDateEnd = document.getElementById('filter-date-end');
+    const btnClearDateRange = document.getElementById('btn-clear-date-range');
+
+    if (elDateStart) {
+      elDateStart.addEventListener('change', (e) => {
+        state.filters.dateStart = e.target.value;
+        if (state.filters.dateStart) {
+          state.filters.date = '';
+          if (elDate) elDate.value = '';
+        }
+        state.pagination.currentPage = 1;
+        evaluateAndRender();
+      });
+    }
+
+    if (elDateEnd) {
+      elDateEnd.addEventListener('change', (e) => {
+        state.filters.dateEnd = e.target.value;
+        if (state.filters.dateEnd) {
+          state.filters.date = '';
+          if (elDate) elDate.value = '';
+        }
+        state.pagination.currentPage = 1;
+        evaluateAndRender();
+      });
+    }
+
+    if (btnClearDateRange) {
+      btnClearDateRange.addEventListener('click', () => {
+        clearFilterItem('dateRange');
+      });
+    }
+
+    // 10. Filter Durasi Telat
+    const elDurasi = document.getElementById('filter-durasi-telat');
+    if (elDurasi) {
+      elDurasi.addEventListener('change', (e) => {
+        state.filters.durasiTelat = e.target.value;
+        state.pagination.currentPage = 1;
+        evaluateAndRender();
+      });
+    }
+
+    // 11. Filter Pengurutan Data (Sort)
     const elSort = document.getElementById('filter-sort');
     if (elSort) {
       elSort.addEventListener('change', (e) => {
@@ -799,7 +1166,17 @@
       });
     }
 
-    // Quick Status Filter Pills
+    // 12. Jumlah Baris per Halaman (Page Size)
+    const elPageSize = document.getElementById('filter-page-size');
+    if (elPageSize) {
+      elPageSize.addEventListener('change', (e) => {
+        state.pagination.pageSize = parseInt(e.target.value, 10) || 25;
+        state.pagination.currentPage = 1;
+        evaluateAndRender();
+      });
+    }
+
+    // 13. Quick Status Filter Pills
     document.querySelectorAll('.status-filter-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         document.querySelectorAll('.status-filter-btn').forEach(b => b.classList.remove('active'));
@@ -809,6 +1186,23 @@
         evaluateAndRender();
       });
     });
+
+    // 14. Toggle Drawer Filter Lanjutan
+    const btnToggleAdvanced = document.getElementById('btn-toggle-advanced-filter');
+    const advancedDrawer = document.getElementById('advanced-filter-drawer');
+    if (btnToggleAdvanced && advancedDrawer) {
+      btnToggleAdvanced.addEventListener('click', () => {
+        advancedDrawer.classList.toggle('collapsed');
+        const isCollapsed = advancedDrawer.classList.contains('collapsed');
+        btnToggleAdvanced.classList.toggle('active', !isCollapsed);
+      });
+    }
+
+    // 15. Reset Semua Filter
+    const btnResetFilter = document.getElementById('btn-reset-filter');
+    if (btnResetFilter) {
+      btnResetFilter.addEventListener('click', resetFilters);
+    }
 
     // Pagination buttons
     const btnPrev = document.getElementById('btn-page-prev');
@@ -975,8 +1369,10 @@
   // ==========================================================================
   // EXPORT & PRINT
   // ==========================================================================
-  function exportToCsv() {
-    const evaluatedAll = state.absensiList.map(evaluateRecord);
+  function exportToCsv(useFiltered = false) {
+    const recordsToExport = (useFiltered && state.lastFilteredRecords && state.lastFilteredRecords.length > 0)
+      ? state.lastFilteredRecords
+      : state.absensiList.map(evaluateRecord);
 
     // Header CSV resmi
     const headers = [
@@ -984,6 +1380,7 @@
       'Tanggal',
       'NIP',
       'Nama Pegawai',
+      'Status Kepegawaian',
       'Unit Kerja',
       'Jam Datang',
       'Batas Datang',
@@ -994,31 +1391,36 @@
       'Keterangan'
     ];
 
-    const rows = evaluatedAll.map((r, i) => [
-      i + 1,
-      r.tanggal,
-      `'${r.nip}`, // Tanda petik agar digit NIP aman di Excel
-      `"${(r.nama_lengkap || '').replace(/"/g, '""')}"`,
-      `"${(r.unit_kerja || '').replace(/"/g, '""')}"`,
-      r.jam_masuk || '-',
-      state.config.jamMasuk,
-      r.menitTerlambat,
-      r.jam_pulang || '-',
-      state.config.jamPulang,
-      `"${r.statusLabel}"`,
-      `"${(r.keterangan || '').replace(/"/g, '""')}"`
-    ]);
+    const rows = recordsToExport.map((r, i) => {
+      const emp = state.pegawaiList.find(p => p.nip === r.nip) || {};
+      return [
+        i + 1,
+        r.tanggal,
+        `'${r.nip}`, // Tanda petik agar digit NIP aman di Excel
+        `"${(r.nama_lengkap || emp.nama_lengkap || '').replace(/"/g, '""')}"`,
+        `"${(emp.status_kepegawaian || 'Pegawai').replace(/"/g, '""')}"`,
+        `"${(r.unit_kerja || emp.unit_kerja || '').replace(/"/g, '""')}"`,
+        r.jam_masuk || '-',
+        state.config.jamMasuk,
+        r.menitTerlambat || 0,
+        r.jam_pulang || '-',
+        state.config.jamPulang,
+        `"${r.statusLabel}"`,
+        `"${(r.keterangan || '').replace(/"/g, '""')}"`
+      ];
+    });
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(e => e.join(','))].join('\r\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `Rekap_Absensi_FHISIP_UT_${state.config.jamMasuk.replace(':', '.')}_${new Date().toISOString().slice(0, 10)}.csv`);
+    const prefix = useFiltered ? 'Rekap_Presensi_Terfilter_FHISIP_UT' : 'Rekap_Absensi_FHISIP_UT';
+    link.setAttribute('download', `${prefix}_${state.config.jamMasuk.replace(':', '.')}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast('File CSV Rekapitulasi berhasil diunduh!');
+    showToast(`File CSV ${useFiltered ? 'Hasil Filter' : 'Lengkap'} (${recordsToExport.length} data) berhasil diunduh!`);
   }
 
   function printOfficialReport() {
@@ -1149,8 +1551,8 @@
     openEditModal,
     deleteRecord,
     resetToDefault,
-    exportToCsv,
-    exportPdf: (mode) => window.pdfExport ? window.pdfExport.exportPdf(mode) : alert('Modul PDF belum termuat'),
+    exportToCsv: (useFiltered = false) => exportToCsv(useFiltered),
+    exportPdf: (mode, useFiltered = false) => window.pdfExport ? window.pdfExport.exportPdf(mode, useFiltered) : alert('Modul PDF belum termuat'),
     printOfficialReport,
     applyPreset,
     getPegawaiList: () => state.pegawaiList,
@@ -1162,7 +1564,10 @@
     },
     getConfig: () => ({ ...state.config }),
     getEvaluatedRecords: () => state.absensiList.map(evaluateRecord),
+    getFilteredRecords: () => state.lastFilteredRecords || [],
     getPegawaiAggregations: () => getPegawaiAggregations(),
+    clearFilterItem,
+    resetFilters,
     showToast,
     evaluateAndRender
   };

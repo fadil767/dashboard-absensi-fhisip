@@ -646,7 +646,7 @@ body {
 }
 
 /* ==========================================================================
-   FILTER & SEARCH TOOLBAR
+   FILTER & SEARCH TOOLBAR (MULTI-DIMENSIONAL FILTER SYSTEM)
    ========================================================================== */
 .table-card {
   background: var(--bg-surface);
@@ -656,30 +656,28 @@ body {
   overflow: hidden;
 }
 
-.toolbar-wrapper {
-  padding: 16px 20px;
+.filter-dashboard-card {
+  background: var(--bg-surface-alt);
   border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Baris 1: Filter Utama (Search + Quick Status Filter + Action Buttons) */
+.filter-main-bar {
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  background: var(--bg-surface-alt);
-}
-
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex: 1;
 }
 
 .search-box {
   position: relative;
-  min-width: 260px;
+  min-width: 240px;
   flex: 1;
-  max-width: 380px;
+  max-width: 320px;
 }
 
 .search-box svg {
@@ -688,18 +686,19 @@ body {
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted);
+  pointer-events: none;
 }
 
 .search-input {
   width: 100%;
-  padding: 8px 12px 8px 36px;
+  padding: 8px 32px 8px 36px;
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-md);
-  font-size: 0.86rem;
+  font-size: 0.85rem;
   font-family: inherit;
   background: #FFF;
   color: var(--text-main);
-  transition: border-color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .search-input:focus {
@@ -708,27 +707,29 @@ body {
   box-shadow: 0 0 0 3px rgba(0, 86, 145, 0.1);
 }
 
-.select-filter {
-  padding: 8px 12px;
-  border: 1.5px solid var(--border-color);
-  border-radius: var(--radius-md);
-  font-size: 0.84rem;
-  font-family: inherit;
-  background: #FFF;
-  color: var(--text-main);
-  cursor: pointer;
-  max-width: 220px;
-}
-
-.select-filter:focus {
-  outline: none;
-  border-color: var(--ut-blue);
-}
-
-.toolbar-right {
+.search-clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: #CBD5E1;
+  color: #334155;
+  border-radius: 50%;
+  font-size: 0.7rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.search-clear-btn:hover {
+  background: #94A3B8;
+  color: #FFF;
 }
 
 /* Quick Filter Pills (Terlambat vs Tepat Waktu) */
@@ -737,23 +738,28 @@ body {
   background: #E2E8F0;
   padding: 3px;
   border-radius: var(--radius-md);
-  gap: 2px;
+  gap: 3px;
+  flex-wrap: wrap;
 }
 
 .status-filter-btn {
   border: none;
   background: transparent;
-  padding: 5px 11px;
+  padding: 6px 11px;
   border-radius: var(--radius-sm);
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-muted);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   transition: all var(--transition-fast);
 }
 
 .status-filter-btn:hover {
   color: var(--ut-navy);
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .status-filter-btn.active {
@@ -771,6 +777,224 @@ body {
 .status-filter-btn.active.filter-tepat {
   color: var(--success-text);
   background: var(--success-bg);
+}
+
+.filter-pill-count {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: rgba(0, 43, 73, 0.08);
+  color: inherit;
+}
+
+.status-filter-btn.active .filter-pill-count {
+  background: rgba(0, 43, 73, 0.12);
+}
+
+.status-filter-btn.active.filter-telat .filter-pill-count {
+  background: var(--danger-border);
+  color: var(--danger-text);
+}
+
+.status-filter-btn.active.filter-tepat .filter-pill-count {
+  background: var(--success-border);
+  color: var(--success-text);
+}
+
+/* Action buttons group */
+.filter-action-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.badge-filter-count {
+  background: var(--ut-blue);
+  color: #FFF;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  margin-left: 4px;
+}
+
+.btn-reset-filter {
+  background: #FEF2F2 !important;
+  color: #991B1B !important;
+  border-color: #FECACA !important;
+}
+
+.btn-reset-filter:hover {
+  background: #FEE2E2 !important;
+}
+
+/* Baris 2: Panel Filter Lanjutan (Drawer) */
+.filter-advanced-drawer {
+  padding: 14px 18px 16px;
+  background: #FFFFFF;
+  border-top: 1px solid var(--border-color);
+  transition: all 0.25s ease;
+}
+
+.filter-advanced-drawer.collapsed {
+  display: none;
+}
+
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.filter-item label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--ut-navy);
+  letter-spacing: 0.2px;
+}
+
+.select-filter, .date-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  font-family: inherit;
+  background: #FFF;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: border-color var(--transition-fast);
+}
+
+.select-filter:focus, .date-input:focus {
+  outline: none;
+  border-color: var(--ut-blue);
+  box-shadow: 0 0 0 2px rgba(0, 86, 145, 0.1);
+}
+
+.filter-date-range-item {
+  grid-column: span 1;
+}
+
+@media (min-width: 900px) {
+  .filter-date-range-item {
+    grid-column: span 2;
+  }
+}
+
+.date-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.date-sep {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.btn-clear-mini {
+  border: none;
+  background: #F1F5F9;
+  color: #64748B;
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.btn-clear-mini:hover {
+  background: #E2E8F0;
+  color: #0F172A;
+}
+
+/* Baris 3: Status Hasil & Active Chips */
+.filter-summary-bar {
+  padding: 10px 18px;
+  background: #F8FAFC;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.summary-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.summary-match-count {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.summary-match-count strong {
+  color: var(--ut-navy);
+}
+
+.active-filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  color: var(--ut-blue);
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: 0.74rem;
+  font-weight: 600;
+  animation: fadeIn 0.2s ease;
+}
+
+.filter-chip-remove {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748B;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.filter-chip-remove:hover {
+  color: var(--danger);
+}
+
+.summary-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-xs {
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
 }
 
 /* ==========================================================================

@@ -267,47 +267,164 @@
          =================================================================== -->
     <main class="table-card">
 
-      <!-- Toolbar Pencarian & Filter Multi-Dimensi -->
-      <div class="toolbar-wrapper">
-        <div class="toolbar-left">
-          <!-- Search box -->
+      <!-- ===================================================================
+           TOOLBAR FILTER MULTI-DIMENSI LOG PRESENSI HARIAN
+           =================================================================== -->
+      <div class="filter-dashboard-card" id="filter-dashboard-section">
+        
+        <!-- Baris 1: Filter Utama (Search + Quick Status Filter + Action Buttons) -->
+        <div class="filter-main-bar">
+          <!-- Search box with clear button -->
           <div class="search-box">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input type="text" id="filter-search" class="search-input" placeholder="Cari Nama Pegawai atau NIP..." aria-label="Pencarian Pegawai">
+            <button type="button" id="btn-clear-search" class="search-clear-btn" title="Hapus Pencarian" style="display:none;">✕</button>
           </div>
 
-          <!-- Filter Unit / Prodi -->
-          <select id="filter-unit" class="select-filter" aria-label="Filter Program Studi">
-            <option value="">Semua Program Studi / Unit</option>
-          </select>
-
-          <!-- Filter Tanggal -->
-          <select id="filter-date" class="select-filter" aria-label="Filter Tanggal Presensi">
-            <option value="">Semua Tanggal Periode</option>
-          </select>
-        </div>
-
-        <div class="toolbar-right">
-          <!-- Quick Status Filter (Telat vs Tepat) -->
-          <div class="quick-status-filter" aria-label="Filter Status Disiplin">
-            <button type="button" class="status-filter-btn active" data-status="all">Semua</button>
-            <button type="button" class="status-filter-btn filter-telat" data-status="telat">🚨 Terlambat</button>
-            <button type="button" class="status-filter-btn filter-tepat" data-status="tepat">✅ Tepat</button>
-            <button type="button" class="status-filter-btn" data-status="pulang_cepat">⏳ Pulang Cepat</button>
-            <button type="button" class="status-filter-btn" data-status="izin">📄 Izin/Cuti</button>
+          <!-- Quick Status Filter Buttons with Live Badges -->
+          <div class="quick-status-filter" id="quick-status-group" aria-label="Filter Status Disiplin Cepat">
+            <button type="button" class="status-filter-btn active" data-status="all">
+              Semua <span class="filter-pill-count" id="count-status-all">0</span>
+            </button>
+            <button type="button" class="status-filter-btn filter-telat" data-status="telat">
+              🚨 Terlambat <span class="filter-pill-count" id="count-status-telat">0</span>
+            </button>
+            <button type="button" class="status-filter-btn filter-tepat" data-status="tepat">
+              ✅ Tepat Waktu <span class="filter-pill-count" id="count-status-tepat">0</span>
+            </button>
+            <button type="button" class="status-filter-btn" data-status="pulang_cepat">
+              ⏳ Pulang Cepat <span class="filter-pill-count" id="count-status-pulang-cepat">0</span>
+            </button>
+            <button type="button" class="status-filter-btn" data-status="tanpa_pulang">
+              ⚠️ Belum Scan Pulang <span class="filter-pill-count" id="count-status-tanpa-pulang">0</span>
+            </button>
+            <button type="button" class="status-filter-btn" data-status="anomali">
+              ⚡ Semua Pelanggaran <span class="filter-pill-count" id="count-status-anomali">0</span>
+            </button>
+            <button type="button" class="status-filter-btn" data-status="izin">
+              📄 Izin / Dinas <span class="filter-pill-count" id="count-status-izin">0</span>
+            </button>
           </div>
 
-          <!-- Sort dropdown -->
-          <select id="filter-sort" class="select-filter" style="width: 170px;" aria-label="Urutkan Data">
-            <option value="telat_desc">Menit Telat Terlama</option>
-            <option value="nama_asc">Nama Pegawai (A-Z)</option>
-            <option value="masuk_asc">Jam Datang Pagi</option>
-            <option value="tanggal_desc">Tanggal Terbaru</option>
-          </select>
+          <!-- Action Buttons (Toggle Advanced Filter + Reset) -->
+          <div class="filter-action-group">
+            <button type="button" id="btn-toggle-advanced-filter" class="btn btn-outline btn-sm" title="Buka/Tutup Filter Lanjutan">
+              <span>🎛️ Filter Lanjutan</span>
+              <span id="badge-active-filter-count" class="badge-filter-count" style="display:none;">0</span>
+            </button>
+            <button type="button" id="btn-reset-filter" class="btn btn-outline btn-sm btn-reset-filter" title="Reset Semua Filter ke Standar Awal" style="display:none;">
+              <span>🔄 Reset Filter</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Baris 2: Panel Filter Lanjutan (Collapsible Grid) -->
+        <div class="filter-advanced-drawer" id="advanced-filter-drawer">
+          <div class="filter-grid">
+            
+            <!-- Filter Program Studi / Bagian -->
+            <div class="filter-item">
+              <label for="filter-unit">🏛 Program Studi / Unit Kerja</label>
+              <select id="filter-unit" class="select-filter" aria-label="Filter Program Studi">
+                <option value="">Semua Program Studi / Unit Kerja</option>
+              </select>
+            </div>
+
+            <!-- Filter Status Kepegawaian -->
+            <div class="filter-item">
+              <label for="filter-kepegawaian">👤 Status Kepegawaian</label>
+              <select id="filter-kepegawaian" class="select-filter" aria-label="Filter Status Kepegawaian">
+                <option value="">Semua Status Kepegawaian</option>
+                <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
+                <option value="PPPK">PPPK (Pegawai Perjanjian Kerja)</option>
+                <option value="Non-PNS">Non-PNS / Kontrak</option>
+              </select>
+            </div>
+
+            <!-- Filter Tanggal Spesifik -->
+            <div class="filter-item">
+              <label for="filter-date">📅 Tanggal Spesifik</label>
+              <select id="filter-date" class="select-filter" aria-label="Filter Tanggal Presensi">
+                <option value="">Semua Tanggal Periode</option>
+              </select>
+            </div>
+
+            <!-- Filter Rentang Tanggal (Date Range) -->
+            <div class="filter-item filter-date-range-item">
+              <label>📆 Rentang Tanggal (Dari - Sampai)</label>
+              <div class="date-range-inputs">
+                <input type="date" id="filter-date-start" class="date-input" aria-label="Tanggal Dari">
+                <span class="date-sep">s/d</span>
+                <input type="date" id="filter-date-end" class="date-input" aria-label="Tanggal Sampai">
+                <button type="button" id="btn-clear-date-range" class="btn-clear-mini" title="Hapus Rentang Tanggal" style="display:none;">✕</button>
+              </div>
+            </div>
+
+            <!-- Filter Durasi Keterlambatan -->
+            <div class="filter-item">
+              <label for="filter-durasi-telat">⏱ Tingkat Keterlambatan</label>
+              <select id="filter-durasi-telat" class="select-filter" aria-label="Filter Durasi Telat">
+                <option value="">Semua Tingkat (Termasuk Tepat)</option>
+                <option value="ringan">Ringan (1 - 15 Menit)</option>
+                <option value="sedang">Sedang (16 - 30 Menit)</option>
+                <option value="berat">Berat (&gt; 30 Menit)</option>
+              </select>
+            </div>
+
+            <!-- Filter Pengurutan Data (Sorting) -->
+            <div class="filter-item">
+              <label for="filter-sort">🔃 Urutan Tampilan</label>
+              <select id="filter-sort" class="select-filter" aria-label="Urutkan Data">
+                <option value="telat_desc">🚨 Menit Telat Terlama</option>
+                <option value="telat_asc">Menit Telat Terpendek</option>
+                <option value="masuk_asc">🌅 Jam Datang Pagi</option>
+                <option value="masuk_desc">☀️ Jam Datang Siang</option>
+                <option value="pulang_asc">⏳ Jam Pulang Lebih Awal</option>
+                <option value="tanggal_desc">📅 Tanggal Terbaru</option>
+                <option value="tanggal_asc">📅 Tanggal Terlama</option>
+                <option value="nama_asc">🔤 Nama Pegawai (A-Z)</option>
+                <option value="nama_desc">🔤 Nama Pegawai (Z-A)</option>
+              </select>
+            </div>
+
+            <!-- Page Size Selector -->
+            <div class="filter-item filter-item-sm">
+              <label for="filter-page-size">📄 Baris per Halaman</label>
+              <select id="filter-page-size" class="select-filter" aria-label="Jumlah Baris per Halaman">
+                <option value="15">15 Baris</option>
+                <option value="25" selected>25 Baris</option>
+                <option value="50">50 Baris</option>
+                <option value="100">100 Baris</option>
+                <option value="99999">Tampilkan Semua</option>
+              </select>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Baris 3: Status Hasil & Chip Filter Aktif -->
+        <div class="filter-summary-bar" id="filter-summary-bar">
+          <div class="summary-left">
+            <span class="summary-match-count" id="summary-match-count">
+              Menampilkan <strong>0</strong> dari <strong>0</strong> catatan presensi
+            </span>
+            <div class="active-filter-chips" id="active-filter-chips">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+          <div class="summary-right">
+            <button type="button" class="btn btn-outline btn-xs" id="btn-export-filtered-csv" onclick="window.app.exportToCsv(true)" title="Unduh hasil filter saat ini dalam format CSV">
+              <span>📊</span> CSV Terfilter
+            </button>
+            <button type="button" class="btn btn-outline btn-xs" id="btn-export-filtered-pdf" onclick="window.app.exportPdf('harian', true)" title="Unduh hasil filter saat ini dalam format PDF">
+              <span>📄</span> PDF Terfilter
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <!-- VIEW 1: TABEL LOG PRESENSI HARIAN -->

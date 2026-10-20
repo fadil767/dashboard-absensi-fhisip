@@ -16,8 +16,9 @@
   /**
    * Menghasilkan dan mengunduh berkas PDF Rekapitulasi Presensi
    * @param {string} mode 'harian' (Log Lengkap) | 'pegawai' (Akumulasi per Pegawai)
+   * @param {boolean} useFiltered true jika ingin mencetak data yang sedang difilter saja
    */
-  function exportPdf(mode = 'harian') {
+  function exportPdf(mode = 'harian', useFiltered = false) {
     initPdfMake();
 
     if (!window.pdfMake) {
@@ -26,7 +27,9 @@
     }
 
     const config = window.app.getConfig();
-    const evaluatedRecords = window.app.getEvaluatedRecords();
+    const evaluatedRecords = (useFiltered && window.app.getFilteredRecords && window.app.getFilteredRecords().length > 0)
+      ? window.app.getFilteredRecords()
+      : window.app.getEvaluatedRecords();
     const todayIndo = new Date().toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'long',
@@ -61,7 +64,7 @@
     // Judul & Tipe Laporan
     const judulLaporan = mode === 'pegawai'
       ? 'LAPORAN AKUMULASI KEDISIPLINAN PER PEGAWAI'
-      : 'LAPORAN REKAPITULASI DETAIL PRESENSI PEGAWAI';
+      : (useFiltered ? 'LAPORAN REKAPITULASI DETAIL PRESENSI (HASIL FILTER)' : 'LAPORAN REKAPITULASI DETAIL PRESENSI PEGAWAI');
 
     // Buat Isi Tabel berdasarkan mode
     let tableBody = [];
@@ -294,10 +297,11 @@
       }
     };
 
-    const fileName = `Rekap_Presensi_FHISIP_UT_${config.jamMasuk.replace(':', '.')}_${new Date().toISOString().slice(0, 10)}.pdf`;
+    const prefixName = useFiltered ? 'Rekap_Presensi_Terfilter' : (mode === 'pegawai' ? 'Rekap_Disiplin_Pegawai' : 'Rekap_Presensi_FHISIP_UT');
+    const fileName = `${prefixName}_${config.jamMasuk.replace(':', '.')}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
     window.pdfMake.createPdf(docDefinition).download(fileName);
-    window.app.showToast('Dokumen PDF resmi berhasil diunduh!', 'success');
+    window.app.showToast(`Dokumen PDF ${useFiltered ? 'Hasil Filter' : 'resmi'} (${totalLog} data) berhasil diunduh!`, 'success');
   }
 
   window.pdfExport = {
