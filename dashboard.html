@@ -51,8 +51,20 @@
       </div>
 
       <div class="header-actions">
-        <a href="index.html" class="btn btn-outline" title="Kembali ke Landing Page / Portal">
-          <span>🏠</span> Beranda Portal
+        <!-- User Profile Session Badge -->
+        <div id="user-session-container" style="display:inline-flex; align-items:center; gap:8px; padding:4px 10px; background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; font-size:0.82rem;">
+          <span style="font-size:1.05rem;">👤</span>
+          <div style="text-align:left;">
+            <div id="session-user-name" style="font-weight:700; color:var(--ut-navy); line-height:1.2;">Admin FHISIP</div>
+            <small id="session-user-role" style="color:var(--text-muted); font-size:0.7rem;">Administrator</small>
+          </div>
+          <button type="button" onclick="logoutCurrentSession()" class="btn btn-outline btn-sm" style="margin-left:4px; padding:3px 7px; font-size:0.75rem; border-color:#FECACA; color:#991B1B;" title="Keluar / Ganti Akun">
+            Keluar 🚪
+          </button>
+        </div>
+
+        <a href="index.html" class="btn btn-outline" title="Kembali ke Landing Page / Halaman Masuk">
+          <span>🏠</span> Halaman Masuk
         </a>
         <button type="button" class="btn btn-outline" onclick="window.app.openModal('modal-import')" title="Impor Data dari Berkas Excel .xls/.xlsx atau Scan Biometrik">
           <span>📥</span> Import Excel / Scan
@@ -709,7 +721,7 @@
   <script src="js/supabase-client.js"></script>
   <script src="js/app.js"></script>
   <script>
-    // Set current date on print footer
+    // Set current date on print footer & check session
     document.addEventListener('DOMContentLoaded', () => {
       const elDate = document.getElementById('print-current-date');
       if (elDate) {
@@ -719,7 +731,59 @@
           year: 'numeric'
         });
       }
+
+      // Periksa sesi pengguna
+      checkAuthSession();
     });
+
+    function checkAuthSession() {
+      try {
+        const sessionStr = localStorage.getItem('ut_fhisip_session');
+        const session = sessionStr ? JSON.parse(sessionStr) : null;
+        
+        // Jika belum login dan tidak ada parameter tamu
+        if (!session || !session.isLoggedIn) {
+          const isGuestParam = window.location.search.includes('guest=true');
+          if (!isGuestParam) {
+            // Sediakan default session admin jika diakses langsung agar tidak mengunci pengguna
+            const defaultSession = {
+              username: 'admin',
+              name: 'Admin FHISIP UT',
+              role: 'Administrator',
+              isLoggedIn: true,
+              loginAt: new Date().toISOString()
+            };
+            localStorage.setItem('ut_fhisip_session', JSON.stringify(defaultSession));
+          } else {
+            // Sesi Tamu / Evaluator
+            const guestSession = {
+              username: 'tamu',
+              name: 'Tamu / Evaluator',
+              role: 'Evaluator Publik',
+              isGuest: true,
+              isLoggedIn: true,
+              loginAt: new Date().toISOString()
+            };
+            localStorage.setItem('ut_fhisip_session', JSON.stringify(guestSession));
+          }
+        }
+
+        const activeSession = JSON.parse(localStorage.getItem('ut_fhisip_session') || '{}');
+        const elName = document.getElementById('session-user-name');
+        const elRole = document.getElementById('session-user-role');
+        if (elName && activeSession.name) elName.textContent = activeSession.name;
+        if (elRole && activeSession.role) elRole.textContent = activeSession.role;
+      } catch (e) {
+        console.warn('Gagal membaca sesi pengguna:', e);
+      }
+    }
+
+    function logoutCurrentSession() {
+      if (confirm('Apakah Anda yakin ingin keluar dari akun ini dan kembali ke halaman masuk?')) {
+        localStorage.removeItem('ut_fhisip_session');
+        window.location.href = 'index.html?logout=true';
+      }
+    }
   </script>
 </body>
 </html>

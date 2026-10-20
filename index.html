@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Portal Presensi Pegawai — FHISIP Universitas Terbuka</title>
-  <meta name="description" content="Sistem Rekapitulasi Presensi dan Kedisiplinan Pegawai Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik (FHISIP) Universitas Terbuka.">
+  <title>Masuk — e-Presensi Pegawai FHISIP Universitas Terbuka</title>
+  <meta name="description" content="Portal Masuk Sistem Rekapitulasi Presensi dan Manajemen Disiplin Pegawai Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik (FHISIP) Universitas Terbuka.">
   <link rel="icon" type="image/jpeg" href="assets/logo.jpg">
 
   <!-- Google Fonts: Plus Jakarta Sans -->
@@ -12,205 +12,371 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-  <!-- Stylesheets -->
-  <link rel="stylesheet" href="css/style.css">
+  <!-- Stylesheet -->
   <link rel="stylesheet" href="css/landing.css">
 </head>
 <body>
 
-  <!-- =====================================================================
-       NAVBAR MINIMALIS
-       ===================================================================== -->
-  <nav class="simple-nav" aria-label="Navigasi Utama">
-    <div class="simple-nav-inner">
-      <a href="index.html" class="nav-brand">
-        <img src="assets/logo.jpg" alt="Logo Universitas Terbuka" onerror="this.src='https://www.ut.ac.id/wp-content/uploads/2023/07/logo-ut.png';">
-        <div class="nav-brand-text">
-          <h2>UNIVERSITAS TERBUKA</h2>
-          <p>FHISIP • Presensi & Disiplin Pegawai</p>
+  <div class="auth-split-wrapper">
+
+    <!-- ===================================================================
+         LEFT PANEL (BRAND, AMBIENT GLOW & FEATURE HIGHLIGHTS)
+         =================================================================== -->
+    <aside class="auth-left-panel">
+      
+      <!-- Brand Header -->
+      <div class="auth-brand">
+        <div class="auth-brand-logo-card">
+          <img src="assets/logo.jpg" alt="Logo Universitas Terbuka" onerror="this.src='https://www.ut.ac.id/wp-content/uploads/2023/07/logo-ut.png';">
         </div>
-      </a>
-
-      <div class="nav-actions">
-        <a href="dashboard.html" class="btn btn-primary">
-          <span>📊</span> Buka Dashboard Presensi
-        </a>
+        <div class="auth-brand-text">
+          <h2>e-Presensi Pegawai</h2>
+          <p>Universitas Terbuka</p>
+        </div>
       </div>
-    </div>
-  </nav>
 
-  <!-- =====================================================================
-       HERO SECTION SEDERHANA & BERSIH
-       ===================================================================== -->
-  <main class="simple-main">
-    <section class="simple-hero">
-      <div class="simple-hero-container">
-        
-
-        <h1 class="simple-title">
-          Sistem Rekapitulasi Presensi & Disiplin Pegawai
+      <!-- Hero Copywriting -->
+      <div class="auth-hero-content">
+        <h1 class="auth-hero-title">
+          Pusat data rekapitulasi <span class="text-teal-gradient">Presensi & Disiplin Pegawai FHISIP</span>
         </h1>
-
-        <p class="simple-desc">
-          Portal kehadiran dosen dan tenaga kependidikan Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik Universitas Terbuka. Kelola status kehadiran secara akurat dengan pengaturan batas waktu keterlambatan dan kepulangan yang fleksibel.
+        <p class="auth-hero-desc">
+          Pantau kehadiran 121 dosen & tenaga kependidikan, simulasi cerdas batas datang terlambat dan kepulangan, serta siapkan laporan resmi berkop surat dari satu dashboard.
         </p>
-
-        <div class="simple-cta-group">
-          <a href="dashboard.html" class="hero-btn-primary" style="font-size: 1rem; padding: 14px 28px;">
-            <span>🚀</span> Masuk ke Dashboard Presensi
-          </a>
-          <a href="#kebijakan" class="hero-btn-secondary">
-            <span>ℹ️</span> Ketentuan Jam Kerja
-          </a>
-        </div>
-
-        <!-- Ringkasan Statistik 3 Metrik -->
-        <div class="simple-stats-grid">
-          <div class="simple-stat-card">
-            <div class="simple-stat-num">121</div>
-            <div class="simple-stat-label">Pegawai Aktif</div>
-            <small>Dosen & Tenaga Kependidikan</small>
-          </div>
-          <div class="simple-stat-card">
-            <div class="simple-stat-num">13</div>
-            <div class="simple-stat-label">Program Studi & Unit</div>
-            <small>Lingkungan FHISIP UT</small>
-          </div>
-          <div class="simple-stat-card">
-            <div class="simple-stat-num">08:30</div>
-            <div class="simple-stat-label">Batas Masuk Resmi</div>
-            <small>Dengan Opsi Toleransi</small>
-          </div>
-        </div>
-
       </div>
-    </section>
 
-    <!-- =====================================================================
-         FITUR UTAMA (3 KARTU BERSIH)
-         ===================================================================== -->
-    <section class="simple-section">
-      <div class="simple-container">
-        
-        <div class="simple-section-header">
-          <h2>Fitur Utama Dashboard</h2>
-          <p>Dirancang sederhana dan intuitif untuk mendukung pengelolaan kehadiran pegawai yang efisien.</p>
+      <!-- 2x2 Feature Grid (Translucent Glassmorphism) -->
+      <div class="auth-feature-grid">
+        <div class="auth-feature-card">
+          <h4>Batas Datang 08:30</h4>
+          <p>Opsi batas terlambat & toleransi reaktif.</p>
         </div>
 
-        <div class="simple-features-grid">
+        <div class="auth-feature-card">
+          <h4>121 Pegawai Aktif</h4>
+          <p>Dosen & tendik pada 13 unit kerja.</p>
+        </div>
+
+        <div class="auth-feature-card">
+          <h4>Impor Excel Biometrik</h4>
+          <p>Membaca matriks scan kehadiran instan.</p>
+        </div>
+
+        <div class="auth-feature-card">
+          <h4>Ekspor PDF & Excel</h4>
+          <p>Laporan resmi ber-Kop Surat FHISIP UT.</p>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- ===================================================================
+         RIGHT PANEL (CLEAN LOGIN FORM)
+         =================================================================== -->
+    <main class="auth-right-panel">
+      <div class="auth-form-container">
+        
+        <header class="auth-header">
+          <h1>Masuk</h1>
+          <p>Silakan masukkan nama pengguna dan kata sandi akun Anda.</p>
+        </header>
+
+        <!-- Alert Error / Success -->
+        <div id="login-alert" class="auth-alert" style="display: none;" role="alert"></div>
+
+        <!-- Login Form -->
+        <form id="login-form" onsubmit="handleLoginSubmit(event)">
           
-          <div class="simple-feature-card">
-            <div class="simple-feature-icon" style="background: #EFF6FF; color: var(--ut-blue);">⏰</div>
-            <h3>Opsi Pengaturan Waktu</h3>
-            <p>
-              Sesuaikan jam masuk maksimal (default 08:30 WIB), kelonggaran toleransi keterlambatan, dan batas jam pulang. Status kehadiran seluruh pegawai akan langsung dihitung ulang secara reaktif.
-            </p>
+          <div class="form-group">
+            <label for="username" class="form-label">Nama pengguna</label>
+            <input 
+              type="text" 
+              id="username" 
+              class="form-input" 
+              placeholder="Nama pengguna atau email e-Campus" 
+              required 
+              autocomplete="username"
+              autofocus
+            >
           </div>
 
-          <div class="simple-feature-card">
-            <div class="simple-feature-icon" style="background: #F0FDF4; color: #166534;">👥</div>
-            <h3>Rekapitulasi 3 Tampilan</h3>
-            <p>
-              Pantau catatan presensi melalui log harian, akumulasi keterlambatan per individu pegawai, atau evaluasi tingkat kedisiplinan per program studi dan bagian tata usaha.
-            </p>
+          <div class="form-group">
+            <label for="password" class="form-label">Kata sandi</label>
+            <div class="password-wrapper">
+              <input 
+                type="password" 
+                id="password" 
+                class="form-input" 
+                placeholder="Kata sandi" 
+                required 
+                autocomplete="current-password"
+              >
+              <button 
+                type="button" 
+                class="btn-toggle-pwd" 
+                id="btn-toggle-pwd" 
+                onclick="togglePasswordVisibility()" 
+                title="Tampilkan / Sembunyikan Kata Sandi"
+              >
+                👁️
+              </button>
+            </div>
           </div>
 
-          <div class="simple-feature-card">
-            <div class="simple-feature-icon" style="background: #FFFBEB; color: #B45309;">📑</div>
-            <h3>Impor Excel & Cetak PDF</h3>
-            <p>
-              Dukungan membaca berkas data scan biometrik (.xls/.xlsx) serta fitur ekspor laporan resmi berformat PDF siap cetak lengkap dengan Kop Surat Resmi FHISIP UT.
-            </p>
-          </div>
-
-        </div>
-
-      </div>
-    </section>
-
-    <!-- =====================================================================
-         RINGKASAN KEBIJAKAN JAM KERJA
-         ===================================================================== -->
-    <section class="simple-section" id="kebijakan" style="background: #F8FAFC; border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
-      <div class="simple-container">
-        
-        <div class="simple-section-header">
-          <h2>Ketentuan Jam Kerja FHISIP UT</h2>
-          <p>Standar jam operasional dan evaluasi kehadiran di lingkungan fakultas.</p>
-        </div>
-
-        <div class="simple-rules-card">
-          <div class="simple-rules-grid">
-            
-            <div class="simple-rule-item">
-              <span class="rule-icon">🚪</span>
-              <div>
-                <strong>Batas Jam Masuk</strong>
-                <p>Maksimal pukul <strong>08:30 WIB</strong>. Kedatangan setelah waktu ini dihitung sebagai keterlambatan.</p>
-              </div>
-            </div>
-
-            <div class="simple-rule-item">
-              <span class="rule-icon">⏱️</span>
-              <div>
-                <strong>Toleransi Keterlambatan</strong>
-                <p>Tersedia opsi penyesuaian dispensasi 0, 5, 10, hingga 15 menit pada dashboard sesuai situasi khusus.</p>
-              </div>
-            </div>
-
-            <div class="simple-rule-item">
-              <span class="rule-icon">🏠</span>
-              <div>
-                <strong>Batas Jam Kepulangan</strong>
-                <p>Minimal pukul <strong>16:30 WIB</strong> (Senin – Jumat). Pegawai yang pulang lebih awal akan ditandai khusus.</p>
-              </div>
-            </div>
-
-            <div class="simple-rule-item">
-              <span class="rule-icon">📝</span>
-              <div>
-                <strong>Dinas Luar & Dispensasi</strong>
-                <p>Pegawai yang mengemban surat tugas luar kantor dapat disesuaikan statusnya melalui dashboard tanpa mengurangi disiplin.</p>
-              </div>
-            </div>
-
-          </div>
-
-          <div style="text-align: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid #E2E8F0;">
-            <a href="dashboard.html" class="btn btn-primary" style="padding: 12px 24px;">
-              <span>📊</span> Masuk ke Dashboard untuk Mengelola Presensi
+          <div class="auth-extras">
+            <a href="javascript:void(0)" onclick="openForgotModal()" class="forgot-link">
+              Lupa kata sandi?
             </a>
           </div>
+
+          <button type="submit" class="btn-submit-login" id="btn-submit">
+            <span>Masuk ke dashboard</span>
+          </button>
+
+          <a href="dashboard.html?guest=true" class="btn-guest-action" id="btn-guest" onclick="handleGuestLogin(event)">
+            <span>Lihat halaman publik / evaluator</span>
+          </a>
+
+        </form>
+
+        <!-- Quick Demo Accounts Helper -->
+        <div class="auth-demo-box">
+          <div class="auth-demo-header">
+            <span class="auth-demo-title">
+              <span>⚡</span> Akun Login Tersedia
+            </span>
+            <small style="color:#64748B; font-size:0.75rem;">Klik untuk isi instan</small>
+          </div>
+          <div class="auth-demo-pills">
+            <button type="button" class="auth-demo-btn" onclick="fillCredentials('admin', 'admin123')">
+              🔑 Admin FHISIP
+            </button>
+            <button type="button" class="auth-demo-btn" onclick="fillCredentials('dosen', 'dosen123')">
+              👨‍🏫 Dosen
+            </button>
+            <button type="button" class="auth-demo-btn" onclick="fillCredentials('dekan', 'dekan123')">
+              🏛️ Dekanat
+            </button>
+          </div>
         </div>
 
-      </div>
-    </section>
-  </main>
+        <footer class="auth-footer-text">
+          Sistem Informasi Presensi Pegawai Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik (FHISIP) Universitas Terbuka.
+        </footer>
 
-  <!-- =====================================================================
-       FOOTER SEDERHANA
-       ===================================================================== -->
-  <footer class="simple-footer">
-    <div class="simple-footer-inner">
-      <div class="simple-footer-brand">
-        <img src="assets/logo.jpg" alt="Logo UT" onerror="this.src='https://www.ut.ac.id/wp-content/uploads/2023/07/logo-ut.png';">
-        <div>
-          <strong>UNIVERSITAS TERBUKA</strong>
-          <p>Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik</p>
-        </div>
       </div>
+    </main>
 
-      <div class="simple-footer-links">
-        <a href="dashboard.html">Dashboard Presensi</a>
-        <a href="https://fhisip.ut.ac.id" target="_blank" rel="noopener">Laman Resmi FHISIP</a>
-        <a href="https://ut.ac.id" target="_blank" rel="noopener">Portal UT Pusat</a>
+  </div>
+
+  <!-- Modal Bantuan Lupa Kata Sandi -->
+  <div id="modal-forgot" class="auth-modal-backdrop" style="display: none;" onclick="closeForgotModal(event)">
+    <div class="auth-modal-card" onclick="event.stopPropagation()">
+      <h3>Pemulihan Akun Presensi</h3>
+      <p>
+        Untuk alasan keamanan dan integritas data ASN/Pegawai Universitas Terbuka, pemulihan kata sandi dilakukan secara terpusat oleh Subbagian Tata Usaha & SDM FHISIP UT.
+      </p>
+      <div style="background:#F1F5F9; padding:12px; border-radius:8px; font-size:0.86rem; color:#334155; margin-bottom:18px;">
+        <div>📍 <strong>Bagian Kepegawaian & Tata Usaha FHISIP UT</strong></div>
+        <div style="margin-top:4px;">✉️ Surel: <code>fhisip@ecampus.ut.ac.id</code></div>
+        <div style="margin-top:2px;">📞 Ext. Kepegawaian: <code>(021) 7490941</code></div>
       </div>
+      <button type="button" class="btn-submit-login" onclick="document.getElementById('modal-forgot').style.display='none'">
+        Mengerti & Kembali
+      </button>
     </div>
+  </div>
 
-    <div class="simple-footer-copy">
-      © 2026 Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik (FHISIP) — Universitas Terbuka.
-    </div>
-  </footer>
+  <!-- ===================================================================
+       AUTHENTICATION SCRIPT
+       =================================================================== -->
+  <script>
+    // Database Akun Terdaftar Resmi
+    const REGISTERED_ACCOUNTS = [
+      {
+        username: 'admin',
+        aliases: ['admin', 'admin.fhisip', 'fhisip@ecampus.ut.ac.id', 'admin@ut.ac.id'],
+        password: ['admin123', 'admin', 'ut12345', 'fhisip2026'],
+        name: 'Administrator Tata Usaha SDM',
+        role: 'Administrator',
+        nip: '198503152010121002',
+        unit: 'Bagian Tata Usaha FHISIP'
+      },
+      {
+        username: 'dosen',
+        aliases: ['dosen', 'dosen@ecampus.ut.ac.id', 'dosen.fhisip'],
+        password: ['dosen123', 'dosen', 'ut12345'],
+        name: 'Dr. Hendra Irawan, M.Si.',
+        role: 'Dosen Tetap',
+        nip: '197906182005011003',
+        unit: 'S1 Ilmu Komunikasi'
+      },
+      {
+        username: 'dekan',
+        aliases: ['dekan', 'dekan@ecampus.ut.ac.id', 'pimpinan'],
+        password: ['dekan123', 'dekan', 'ut12345'],
+        name: 'Dekanat FHISIP UT',
+        role: 'Pimpinan Fakultas',
+        nip: '196808201993031001',
+        unit: 'Dekanat FHISIP'
+      },
+      {
+        username: 'evaluator',
+        aliases: ['evaluator', 'tamu', 'guest'],
+        password: ['evaluator123', 'evaluator', 'guest'],
+        name: 'Tim Evaluator Publik',
+        role: 'Evaluator',
+        nip: '-',
+        unit: 'Penjaminan Mutu'
+      }
+    ];
+
+    // Toggle Tampilkan / Sembunyikan Password
+    function togglePasswordVisibility() {
+      const pwdInput = document.getElementById('password');
+      const btn = document.getElementById('btn-toggle-pwd');
+      if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        btn.textContent = '🙈';
+      } else {
+        pwdInput.type = 'password';
+        btn.textContent = '👁️';
+      }
+    }
+
+    // Isi Cepat Akun Demo
+    function fillCredentials(user, pass) {
+      document.getElementById('username').value = user;
+      document.getElementById('password').value = pass;
+      showAlert('Kredensial ' + user + ' siap digunakan. Klik Masuk!', 'success');
+    }
+
+    // Tampilkan Alert Pesan
+    function showAlert(message, type) {
+      const alertEl = document.getElementById('login-alert');
+      alertEl.style.display = 'flex';
+      alertEl.className = 'auth-alert ' + (type === 'success' ? 'auth-alert-success' : 'auth-alert-error');
+      alertEl.innerHTML = (type === 'success' ? '<span>✓</span> ' : '<span>⚠️</span> ') + message;
+    }
+
+    // Tangani Submit Form Login
+    function handleLoginSubmit(event) {
+      event.preventDefault();
+      const usernameInput = document.getElementById('username').value.trim();
+      const passwordInput = document.getElementById('password').value.trim();
+      const btn = document.getElementById('btn-submit');
+
+      if (!usernameInput || !passwordInput) {
+        showAlert('Silakan lengkapi nama pengguna dan kata sandi.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span>Memverifikasi akun...</span>';
+
+      setTimeout(() => {
+        // Cari akun yang cocok
+        const matched = REGISTERED_ACCOUNTS.find(acc => 
+          acc.aliases.includes(usernameInput.toLowerCase()) || 
+          acc.username.toLowerCase() === usernameInput.toLowerCase()
+        );
+
+        if (matched) {
+          const isPwdValid = Array.isArray(matched.password) 
+            ? matched.password.includes(passwordInput) 
+            : matched.password === passwordInput;
+
+          if (isPwdValid) {
+            // Berhasil login
+            showAlert('Login berhasil! Mengalihkan ke dashboard...', 'success');
+            
+            const sessionData = {
+              username: matched.username,
+              name: matched.name,
+              role: matched.role,
+              nip: matched.nip,
+              unit: matched.unit,
+              isLoggedIn: true,
+              loginAt: new Date().toISOString()
+            };
+
+            localStorage.setItem('ut_fhisip_session', JSON.stringify(sessionData));
+
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 600);
+            return;
+          }
+        }
+
+        // Jika tidak cocok akun demo, periksa akun tambahan di LocalStorage
+        try {
+          const customUsers = JSON.parse(localStorage.getItem('ut_fhisip_custom_users') || '[]');
+          const customMatched = customUsers.find(u => 
+            u.username.toLowerCase() === usernameInput.toLowerCase() && u.password === passwordInput
+          );
+          if (customMatched) {
+            showAlert('Login berhasil! Mengalihkan...', 'success');
+            localStorage.setItem('ut_fhisip_session', JSON.stringify({
+              username: customMatched.username,
+              name: customMatched.name || customMatched.username,
+              role: customMatched.role || 'Pegawai',
+              isLoggedIn: true,
+              loginAt: new Date().toISOString()
+            }));
+            setTimeout(() => {
+              window.location.href = 'dashboard.html';
+            }, 600);
+            return;
+          }
+        } catch (e) {}
+
+        // Kredensial tidak valid
+        btn.disabled = false;
+        btn.innerHTML = '<span>Masuk ke dashboard</span>';
+        showAlert('Nama pengguna atau kata sandi tidak sesuai. Gunakan akun demo di bawah jika belum memiliki akun khusus.', 'error');
+      }, 400);
+    }
+
+    // Tangani Masuk Sebagai Tamu / Evaluator
+    function handleGuestLogin(event) {
+      event.preventDefault();
+      const guestSession = {
+        username: 'tamu',
+        name: 'Tamu / Evaluator Publik',
+        role: 'Evaluator Publik',
+        nip: '-',
+        unit: 'Akses Tamu',
+        isLoggedIn: true,
+        isGuest: true,
+        loginAt: new Date().toISOString()
+      };
+      localStorage.setItem('ut_fhisip_session', JSON.stringify(guestSession));
+      window.location.href = 'dashboard.html';
+    }
+
+    // Modal Lupa Password
+    function openForgotModal() {
+      document.getElementById('modal-forgot').style.display = 'flex';
+    }
+
+    function closeForgotModal(e) {
+      if (e.target.id === 'modal-forgot') {
+        document.getElementById('modal-forgot').style.display = 'none';
+      }
+    }
+
+    // Cek apakah sudah login sebelumnya
+    window.addEventListener('DOMContentLoaded', () => {
+      try {
+        const existing = JSON.parse(localStorage.getItem('ut_fhisip_session') || '{}');
+        if (existing && existing.isLoggedIn && !window.location.search.includes('logout=true')) {
+          // Tampilkan status sudah login
+          showAlert('Sesi aktif ditemukan sebagai <strong>' + existing.name + '</strong>. <a href="dashboard.html" style="color:#005691; font-weight:700; text-decoration:underline;">Lanjutkan ke Dashboard →</a>', 'success');
+        }
+      } catch (e) {}
+    });
+  </script>
 
 </body>
 </html>
