@@ -2,10 +2,14 @@
   "version": 2,
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/", "destination": "/landing.html" },
-    { "source": "/landing", "destination": "/landing.html" },
-    { "source": "/dashboard", "destination": "/index.html" }
+    { "source": "/(.*)", "destination": "/server.js" }
   ],
+  "functions": {
+    "server.js": {
+      "includeFiles": "{index.html,dashboard.html,css/**,js/**,assets/**,supabase/**}"
+    }
+  },
+
   "headers": [
     {
       "source": "/(.*)",

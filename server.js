@@ -23,8 +23,8 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   let reqPath = decodeURI(req.url.split('?')[0]);
-  if (reqPath === '/' || reqPath === '/landing') reqPath = '/landing.html';
-  if (reqPath === '/dashboard') reqPath = '/index.html';
+  if (reqPath === '/' || reqPath === '/landing' || reqPath === '/landing.html') reqPath = '/index.html';
+  if (reqPath === '/dashboard' || reqPath === '/dashboard.html') reqPath = '/dashboard.html';
 
   const filePath = path.join(PUBLIC_DIR, reqPath);
 
@@ -55,9 +55,14 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`================================================================`);
-  console.log(`  DASHBOARD ABSENSI PEGAWAI FHISIP UNIVERSITAS TERBUKA`);
-  console.log(`  Aplikasi berjalan di: http://localhost:${PORT}`);
-  console.log(`================================================================`);
-});
+if (process.env.VERCEL !== '1') {
+  server.listen(PORT, () => {
+    console.log(`================================================================`);
+    console.log(`  DASHBOARD ABSENSI PEGAWAI FHISIP UNIVERSITAS TERBUKA`);
+    console.log(`  Aplikasi berjalan di: http://localhost:${PORT}`);
+    console.log(`================================================================`);
+  });
+}
+
+module.exports = server;
+
