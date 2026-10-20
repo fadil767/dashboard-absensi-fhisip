@@ -122,17 +122,31 @@
     const localList = window.app.getAbsensiList();
     if (localList.length === 0) throw new Error('Tidak ada data presensi lokal.');
 
-    const upsertRows = localList.map(a => ({
-      nip: a.nip,
-      tanggal: a.tanggal,
-      jam_masuk: a.jam_masuk || null,
-      jam_pulang: a.jam_pulang || null,
-      status_kehadiran: a.status_kehadiran || 'Hadir',
-      keterangan: a.keterangan || null
-    }));
+    // Deduplikasi otomatis berdasarkan kunci unik (nip, tanggal) agar tidak memicu error batch PostgreSQL
+    const cleanMap = new Map();
+    localList.forEach(a => {
+      const k = `${a.nip}|${a.tanggal}`;
+      if (!cleanMap.has(k)) {
+        cleanMap.set(k, {
+          nip: a.nip,
+          tanggal: a.tanggal,
+          jam_masuk: a.jam_masuk || null,
+          jam_pulang: a.jam_pulang || null,
+          status_kehadiran: a.status_kehadiran || 'Hadir',
+          keterangan: a.keterangan || null
+        });
+      } else {
+        const existing = cleanMap.get(k);
+        if (a.jam_masuk && (!existing.jam_masuk || a.jam_masuk < existing.jam_masuk)) existing.jam_masuk = a.jam_masuk;
+        if (a.jam_pulang && (!existing.jam_pulang || a.jam_pulang > existing.jam_pulang)) existing.jam_pulang = a.jam_pulang;
+        if (a.keterangan && !existing.keterangan) existing.keterangan = a.keterangan;
+      }
+    });
 
-    // Batch upsert 100 rows per request
-    const chunkSize = 100;
+    const upsertRows = Array.from(cleanMap.values());
+
+    // Batch upsert 150 rows per request
+    const chunkSize = 150;
     let committed = 0;
 
     for (let i = 0; i < upsertRows.length; i += chunkSize) {
