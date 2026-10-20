@@ -9,14 +9,19 @@
   const STORAGE_KEY_SUPABASE = 'ut_fhisip_supabase_config_v1';
   let supabaseClient = null;
 
+  const DEFAULT_SUPABASE = {
+    url: 'https://sxnimpyselgoenpurhhw.supabase.co',
+    anonKey: 'sb_publishable_pm5jUtQVQf2wpWrtMtkm-Q_L6eb73S3'
+  };
+
   function loadSavedConfig() {
     try {
       const saved = localStorage.getItem(STORAGE_KEY_SUPABASE);
-      if (saved) return JSON.parse(saved);
+      if (saved) return { ...DEFAULT_SUPABASE, ...JSON.parse(saved) };
     } catch (e) {
       console.warn('Gagal membaca config Supabase:', e);
     }
-    return { url: '', anonKey: '' };
+    return { ...DEFAULT_SUPABASE };
   }
 
   function saveConfig(url, anonKey) {
