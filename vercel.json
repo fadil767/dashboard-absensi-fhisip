@@ -1,28 +1,40 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/server.js?path=$1" }
+    { "source": "/masuk", "destination": "/index.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/landing", "destination": "/index.html" },
+    { "source": "/dashboard", "destination": "/dashboard.html" }
   ],
-  "functions": {
-    "server.js": {
-      "includeFiles": "{index.html,dashboard.html,css/**,js/**,assets/**,supabase/**,*.xlsx,*.csv}"
-    }
-  },
-
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+        { "key": "X-XSS-Protection", "value": "1; mode=block" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    },
+    {
+      "source": "/(index|dashboard|index.html|dashboard.html)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
     },
     {
       "source": "/(css|js|assets)/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
+      ]
+    },
+    {
+      "source": "/(.*\\.(xlsx|csv))",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=3600, stale-while-revalidate=86400" }
       ]
     }
   ]
