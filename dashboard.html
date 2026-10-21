@@ -49,46 +49,122 @@
         </div>
       </div>
 
+      <!-- Toolbar ringkas: 2 aksi utama + 3 menu terkelompok -->
       <div class="header-actions">
-        <!-- User Profile Session Badge -->
-        <div id="user-session-container" style="display:inline-flex; align-items:center; gap:8px; padding:4px 10px; background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; font-size:0.82rem;">
-          <span style="font-size:1.05rem;">👤</span>
-          <div style="text-align:left;">
-            <div id="session-user-name" style="font-weight:700; color:var(--ut-navy); line-height:1.2;">Admin FHISIP</div>
-            <small id="session-user-role" style="color:var(--text-muted); font-size:0.7rem;">Administrator</small>
-          </div>
-          <button type="button" onclick="logoutCurrentSession()" class="btn btn-outline btn-sm" style="margin-left:4px; padding:3px 7px; font-size:0.75rem; border-color:#FECACA; color:#991B1B;" title="Keluar / Ganti Akun">
-            Keluar 🚪
+        <button type="button" id="btn-header-tambah" class="btn btn-primary" onclick="window.app.openModal('modal-tambah')">
+          <span>➕</span> Tambah Presensi
+        </button>
+        <button type="button" id="btn-header-import" class="btn btn-outline" onclick="window.app.openModal('modal-import')" title="Impor Data dari Berkas Excel .xls/.xlsx atau Scan Biometrik">
+          <span>📥</span> Import
+        </button>
+
+        <span class="header-divider" aria-hidden="true"></span>
+
+        <!-- Menu Ekspor & Laporan -->
+        <button type="button" id="btn-menu-export" class="btn btn-outline menu-trigger" popovertarget="menu-export" title="Ekspor, unduh, dan cetak laporan">
+          <span>📤</span> Ekspor &amp; Laporan
+          <svg class="menu-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div id="menu-export" popover="auto" class="menu-panel" aria-label="Menu Ekspor &amp; Laporan">
+          <div class="menu-section-label">Laporan Resmi</div>
+          <button type="button" id="menu-item-monthly-xlsx" class="menu-item" onclick="window.monthlyReportGenerator.openExportModal()">
+            <span class="menu-item-icon icon-teal">📑</span>
+            <span class="menu-item-text"><strong>Rekap Bulanan Resmi</strong><small>Format biometrik UT + tanda tangan Dekan</small></span>
+            <span class="menu-item-tag">.xlsx</span>
+          </button>
+          <button type="button" id="menu-item-pdf-harian" class="menu-item" onclick="window.app.exportPdf('harian')">
+            <span class="menu-item-icon icon-blue">📄</span>
+            <span class="menu-item-text"><strong>PDF Log Presensi Harian</strong><small>Lengkap dengan kop surat FHISIP UT</small></span>
+            <span class="menu-item-tag">.pdf</span>
+          </button>
+          <button type="button" id="menu-item-pdf-pegawai" class="menu-item" onclick="window.app.exportPdf('pegawai')">
+            <span class="menu-item-icon icon-blue">👥</span>
+            <span class="menu-item-text"><strong>PDF Rekap per Pegawai</strong><small>Akumulasi disiplin setiap pegawai</small></span>
+            <span class="menu-item-tag">.pdf</span>
+          </button>
+          <button type="button" id="menu-item-print" class="menu-item" onclick="window.app.printOfficialReport()">
+            <span class="menu-item-icon icon-slate">🖨️</span>
+            <span class="menu-item-text"><strong>Cetak Laporan</strong><small>Cetak langsung tampilan saat ini</small></span>
+          </button>
+
+          <div class="menu-separator" role="separator"></div>
+          <div class="menu-section-label">Hasil Filter Saat Ini</div>
+          <button type="button" id="btn-export-filtered-csv" class="menu-item" onclick="window.app.exportToCsv(true)">
+            <span class="menu-item-icon icon-green">📊</span>
+            <span class="menu-item-text"><strong>CSV Terfilter</strong><small>Hanya baris yang sedang ditampilkan</small></span>
+            <span class="menu-item-tag">.csv</span>
+          </button>
+          <button type="button" id="btn-export-filtered-pdf" class="menu-item" onclick="window.app.exportPdf('harian', true)">
+            <span class="menu-item-icon icon-blue">📄</span>
+            <span class="menu-item-text"><strong>PDF Terfilter</strong><small>Hanya baris yang sedang ditampilkan</small></span>
+            <span class="menu-item-tag">.pdf</span>
+          </button>
+
+          <div class="menu-separator" role="separator"></div>
+          <div class="menu-section-label">Data Lengkap</div>
+          <button type="button" id="menu-item-csv-all" class="menu-item" onclick="window.app.exportToCsv()">
+            <span class="menu-item-icon icon-green">📁</span>
+            <span class="menu-item-text"><strong>Database Terpadu Semua Bulan</strong><small>Seluruh catatan presensi</small></span>
+            <span class="menu-item-tag">.csv</span>
           </button>
         </div>
 
-        <a href="index.html" class="btn btn-outline" title="Kembali ke Landing Page / Halaman Masuk">
-          <span>🏠</span> Halaman Masuk
-        </a>
-        <button type="button" class="btn btn-outline" onclick="window.app.openModal('modal-import')" title="Impor Data dari Berkas Excel .xls/.xlsx atau Scan Biometrik">
-          <span>📥</span> Import Excel / Scan
+        <!-- Menu Kelola Data -->
+        <button type="button" id="btn-menu-data" class="btn btn-outline menu-trigger" popovertarget="menu-data" title="Referensi, template, sinkronisasi, dan reset data">
+          <span>🗄️</span> Kelola Data
+          <svg class="menu-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
-        <button type="button" class="btn btn-primary" onclick="window.app.openModal('modal-tambah')">
-          <span>➕</span> Tambah Presensi
+        <div id="menu-data" popover="auto" class="menu-panel" aria-label="Menu Kelola Data">
+          <div class="menu-section-label">Referensi &amp; Berkas</div>
+          <button type="button" id="menu-item-kamus" class="menu-item" onclick="window.app.openDatabaseRefModal()">
+            <span class="menu-item-icon icon-gold">📚</span>
+            <span class="menu-item-text"><strong>Kamus &amp; Referensi Data</strong><small>Metadata &amp; standar struktur kolom</small></span>
+          </button>
+          <a id="menu-item-sept-clean" class="menu-item" href="/Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx">
+            <span class="menu-item-icon icon-navy">📥</span>
+            <span class="menu-item-text"><strong>Database September Bersih</strong><small>Hasil olah data September 2026</small></span>
+            <span class="menu-item-tag">.xlsx</span>
+          </a>
+          <a id="menu-item-template" class="menu-item" href="/Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx">
+            <span class="menu-item-icon icon-slate">📋</span>
+            <span class="menu-item-text"><strong>Template Bulan Berikutnya</strong><small>Format standar input presensi</small></span>
+            <span class="menu-item-tag">.xlsx</span>
+          </a>
+
+          <div class="menu-separator" role="separator"></div>
+          <div class="menu-section-label">Sinkronisasi</div>
+          <button type="button" id="menu-item-supabase" class="menu-item" onclick="window.supabaseSync.openModal()">
+            <span class="menu-item-icon icon-green">☁️</span>
+            <span class="menu-item-text"><strong>Supabase Cloud</strong><small>Koneksi, tarik &amp; unggah data</small></span>
+          </button>
+
+          <div class="menu-separator" role="separator"></div>
+          <button type="button" id="menu-item-reset" class="menu-item menu-item-danger" onclick="window.app.resetToDefault()">
+            <span class="menu-item-icon icon-red">🔄</span>
+            <span class="menu-item-text"><strong>Reset ke Data Awal</strong><small>Kembalikan seluruh data bawaan</small></span>
+          </button>
+        </div>
+
+        <!-- Menu Akun Pengguna -->
+        <button type="button" id="user-session-container" class="user-chip menu-trigger" popovertarget="menu-user" title="Akun pengguna">
+          <span class="user-avatar" id="session-user-initial" aria-hidden="true">A</span>
+          <span class="user-chip-text">
+            <span id="session-user-name" class="user-chip-name">Admin FHISIP</span>
+            <small id="session-user-role" class="user-chip-role">Administrator</small>
+          </span>
+          <svg class="menu-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
-        <button type="button" class="btn btn-outline" onclick="window.app.exportToCsv()" title="Unduh format spreadsheet CSV">
-          <span>📊</span> Ekspor CSV
-        </button>
-        <button type="button" class="btn btn-primary" onclick="window.monthlyReportGenerator.openExportModal()" style="background:#0F766E; border-color:#0F766E;" title="Unduh Format Rekapitulasi Kehadiran Bulanan Resmi (Excel .xlsx)">
-          <span>📑</span> Laporan Bulanan (.xlsx)
-        </button>
-        <button type="button" class="btn btn-primary" onclick="window.app.exportPdf('harian')" style="background:var(--ut-blue);" title="Unduh Dokumen PDF Resmi Lengkap dengan Kop Surat FHISIP UT">
-          <span>📄</span> Unduh PDF
-        </button>
-        <button type="button" class="btn btn-outline" onclick="window.supabaseSync.openModal()" title="Koneksi & Sinkronisasi Database Supabase Cloud">
-          <span>☁️</span> Supabase
-        </button>
-        <button type="button" class="btn btn-outline" onclick="window.app.printOfficialReport()" title="Cetak laporan resmi">
-          <span>🖨️</span> Cetak
-        </button>
-        <button type="button" class="btn btn-outline" onclick="window.app.resetToDefault()" title="Kembalikan ke data awal">
-          <span>🔄</span> Reset
-        </button>
+        <div id="menu-user" popover="auto" class="menu-panel menu-panel-sm" aria-label="Menu Akun">
+          <a id="menu-item-home" class="menu-item" href="index.html">
+            <span class="menu-item-icon icon-slate">🏠</span>
+            <span class="menu-item-text"><strong>Halaman Masuk</strong></span>
+          </a>
+          <div class="menu-separator" role="separator"></div>
+          <button type="button" id="menu-item-logout" class="menu-item menu-item-danger" onclick="logoutCurrentSession()">
+            <span class="menu-item-icon icon-red">🚪</span>
+            <span class="menu-item-text"><strong>Keluar / Ganti Akun</strong></span>
+          </button>
+        </div>
       </div>
     </header>
 
@@ -96,15 +172,27 @@
          PANEL OPSI BATAS DATANG TERLAMBAT & KEPULANGAN
          (FITUR UTAMA YANG DIMINTA)
          =================================================================== -->
-    <section class="config-card" aria-label="Pengaturan Batas Waktu Presensi">
-      <div class="config-header">
+    <details class="config-card config-collapsible" id="config-panel" aria-label="Pengaturan Batas Waktu Presensi">
+      <summary class="config-summary">
         <div class="config-title-group">
           <div class="config-title-icon">⚙️</div>
           <div>
-            <h2>Pengaturan Batas Datang Terlambat & Waktu Kepulangan</h2>
-            <p>Atur batas jam kerja resmi FHISIP. Perubahan waktu akan langsung menghitung ulang status keterlambatan seluruh data secara instan.</p>
+            <h2>Pengaturan Batas Datang Terlambat &amp; Waktu Kepulangan</h2>
+            <div class="active-rule-summary" id="header-policy-rule">
+              Memuat aturan jam kerja...
+            </div>
           </div>
         </div>
+        <span class="config-toggle-hint">
+          <span class="hint-closed">Ubah Pengaturan</span>
+          <span class="hint-open">Sembunyikan</span>
+          <svg class="menu-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </span>
+      </summary>
+
+      <div class="config-body">
+      <div class="config-header">
+        <p class="config-desc">Atur batas jam kerja resmi FHISIP. Perubahan waktu akan langsung menghitung ulang status keterlambatan seluruh data secara instan.</p>
 
         <!-- Preset Cepat Kebijakan -->
         <div class="config-preset-pills">
@@ -178,14 +266,10 @@
       </div>
 
       <div class="config-footer-note">
-        <div class="active-rule-summary" id="header-policy-rule">
-          Memuat aturan jam kerja...
-        </div>
-        <div>
-          <span>💡 Kalkulasi otomatis berjalan secara reaktif di browser tanpa membebani server.</span>
-        </div>
+        <span>💡 Kalkulasi otomatis berjalan secara reaktif di browser tanpa membebani server.</span>
       </div>
-    </section>
+      </div> <!-- /.config-body -->
+    </details>
 
     <!-- ===================================================================
          SUMMARY KPI CARDS (REKAPITULASI REAL-TIME)
@@ -270,20 +354,6 @@
             <span class="period-count" id="count-period-oct">948</span>
           </button>
         </div>
-      </div>
-      <div class="database-action-group">
-        <button type="button" class="btn btn-primary btn-sm" onclick="window.monthlyReportGenerator.openExportModal()" style="background:#0F766E; border-color:#0F766E;" title="Buat & Unduh Laporan Rekapitulasi Kehadiran Bulanan Format Resmi (Persis Format Mesin Biometrik UT)">
-          <span>📑</span> Rekap Bulanan Resmi (.xlsx)
-        </button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="window.app.openDatabaseRefModal()" title="Lihat Kamus Data, Metadata, & Standarisasi Referensi">
-          <span>📚</span> Kamus & Referensi Data
-        </button>
-        <a href="/Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx" class="btn btn-primary btn-sm" style="background:var(--ut-navy); text-decoration:none;" title="Unduh Database September 2026 yang Sudah Diolah Bersih (.xlsx)">
-          <span>📥</span> Unduh September Bersih (Excel)
-        </a>
-        <a href="/Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none;" title="Unduh Template Standar untuk Input Data Bulan Berikutnya (.xlsx)">
-          <span>📋</span> Template Bulan Berikutnya
-        </a>
       </div>
     </div>
 
@@ -459,14 +529,6 @@
               <!-- Rendered via JS -->
             </div>
           </div>
-          <div class="summary-right">
-            <button type="button" class="btn btn-outline btn-xs" id="btn-export-filtered-csv" onclick="window.app.exportToCsv(true)" title="Unduh hasil filter saat ini dalam format CSV">
-              <span>📊</span> CSV Terfilter
-            </button>
-            <button type="button" class="btn btn-outline btn-xs" id="btn-export-filtered-pdf" onclick="window.app.exportPdf('harian', true)" title="Unduh hasil filter saat ini dalam format PDF">
-              <span>📄</span> PDF Terfilter
-            </button>
-          </div>
         </div>
 
       </div>
@@ -510,11 +572,6 @@
 
       <!-- VIEW 2: REKAPITULASI PER PEGAWAI (AKUMULASI) -->
       <div id="view-pegawai" style="display: none;">
-        <div style="display: flex; justify-content: flex-end; padding: 12px 18px 6px;">
-          <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportPdf('pegawai')" title="Unduh Rekap Akumulasi per Pegawai dalam format PDF">
-            <span>📄</span> Unduh PDF Rekap Pegawai
-          </button>
-        </div>
         <div class="table-responsive">
           <table>
             <thead>
@@ -1213,8 +1270,10 @@
         const activeSession = JSON.parse(localStorage.getItem('ut_fhisip_session') || '{}');
         const elName = document.getElementById('session-user-name');
         const elRole = document.getElementById('session-user-role');
+        const elInitial = document.getElementById('session-user-initial');
         if (elName && activeSession.name) elName.textContent = activeSession.name;
         if (elRole && activeSession.role) elRole.textContent = activeSession.role;
+        if (elInitial && activeSession.name) elInitial.textContent = activeSession.name.trim().charAt(0).toUpperCase();
       } catch (e) {
         console.warn('Gagal membaca sesi pengguna:', e);
       }
@@ -1225,6 +1284,89 @@
         localStorage.removeItem('ut_fhisip_session');
         window.location.href = 'index.html?logout=true';
       }
+    }
+
+    // =====================================================================
+    // MENU DROPDOWN HEADER (Popover API + penempatan sadar-viewport)
+    // =====================================================================
+    (function initHeaderMenus() {
+      const GAP = 8;
+      const EDGE = 12;
+
+      function positionMenu(panel) {
+        const trigger = document.querySelector(`[popovertarget="${panel.id}"]`);
+        if (!trigger) return;
+        const r = trigger.getBoundingClientRect();
+        const pw = panel.offsetWidth;
+        const ph = panel.offsetHeight;
+        const vw = document.documentElement.clientWidth;
+        const vh = window.innerHeight;
+
+        // Rata kanan dengan tombol; geser bila keluar layar
+        let left = r.right - pw;
+        if (left < EDGE) left = Math.min(r.left, vw - pw - EDGE);
+        left = Math.max(EDGE, left);
+
+        // Tampil di bawah; balik ke atas bila ruang bawah tidak cukup
+        let top = r.bottom + GAP;
+        const fitsBelow = top + ph <= vh - EDGE;
+        if (!fitsBelow && r.top - GAP - ph >= EDGE) {
+          top = r.top - GAP - ph;
+          panel.dataset.placement = 'top';
+        } else {
+          panel.dataset.placement = 'bottom';
+        }
+
+        panel.style.left = `${left}px`;
+        panel.style.top = `${top}px`;
+      }
+
+      document.querySelectorAll('.menu-panel[popover]').forEach(panel => {
+        panel.addEventListener('toggle', (ev) => {
+          const trigger = document.querySelector(`[popovertarget="${panel.id}"]`);
+          const isOpen = ev.newState === 'open';
+          if (trigger) trigger.classList.toggle('is-open', isOpen);
+          if (isOpen) positionMenu(panel);
+        });
+
+        // Tutup menu setelah item dipilih
+        panel.addEventListener('click', (ev) => {
+          if (ev.target.closest('.menu-item') && typeof panel.hidePopover === 'function') {
+            panel.hidePopover();
+          }
+        });
+      });
+
+      const isPopoverOpen = (panel) => {
+        try { return panel.matches(':popover-open'); }
+        catch (_) { return panel.classList.contains(':popover-open'); }
+      };
+      const repositionOpen = () => {
+        document.querySelectorAll('.menu-panel[popover]').forEach(panel => {
+          if (isPopoverOpen(panel)) positionMenu(panel);
+        });
+      };
+      window.addEventListener('resize', repositionOpen);
+      window.addEventListener('scroll', repositionOpen, { passive: true });
+    })();
+
+    // =====================================================================
+    // PANEL PENGATURAN JAM KERJA: ingat status buka / tutup
+    // =====================================================================
+    (function initConfigPanel() {
+      const KEY = 'ut_fhisip_config_panel_open';
+      const panel = document.getElementById('config-panel');
+      if (!panel) return;
+      panel.open = localStorage.getItem(KEY) === '1';
+      panel.addEventListener('toggle', () => {
+        localStorage.setItem(KEY, panel.open ? '1' : '0');
+      });
+    })();
+  </script>
+  <!-- Polyfill Popover hanya untuk browser lama yang belum mendukung -->
+  <script type="module">
+    if (!('popover' in HTMLElement.prototype)) {
+      import('https://unpkg.com/@oddbird/popover-polyfill@latest/dist/popover.min.js');
     }
   </script>
 </body>

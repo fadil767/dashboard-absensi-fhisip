@@ -257,6 +257,319 @@ body {
 }
 
 /* ==========================================================================
+   HEADER TOOLBAR: MENU TERKELOMPOK (POPOVER)
+   ========================================================================== */
+.header-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border-color);
+  margin: 0 2px;
+}
+
+.menu-trigger .menu-chevron {
+  transition: transform var(--transition-normal);
+  opacity: 0.7;
+}
+
+.menu-trigger.is-open {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+  color: var(--ut-blue);
+}
+
+.menu-trigger.is-open .menu-chevron {
+  transform: rotate(180deg);
+}
+
+/* Panel menu (top layer via Popover API, diposisikan oleh JS) */
+.menu-panel {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow:
+    0 20px 40px -12px rgba(0, 43, 73, 0.22),
+    0 4px 12px rgba(0, 43, 73, 0.06);
+  color: var(--text-main);
+}
+
+.menu-panel-sm {
+  width: 240px;
+}
+
+.menu-panel:is(:popover-open, .\:popover-open) {
+  display: block;
+  animation: menu-pop-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu-panel[data-placement="top"]:is(:popover-open, .\:popover-open) {
+  animation-name: menu-pop-in-up;
+}
+
+@keyframes menu-pop-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes menu-pop-in-up {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menu-panel:is(:popover-open, .\:popover-open) { animation: none; }
+}
+
+.menu-section-label {
+  padding: 8px 10px 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--text-light);
+}
+
+.menu-separator {
+  height: 1px;
+  background: var(--border-color);
+  margin: 6px 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--bg-surface-alt);
+  outline: none;
+}
+
+.menu-item:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--border-focus);
+}
+
+.menu-item:active {
+  transform: scale(0.99);
+}
+
+.menu-item-icon {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  background: var(--neutral-bg);
+}
+
+.icon-teal  { background: #CCFBF1; }
+.icon-blue  { background: var(--info-bg); }
+.icon-green { background: var(--success-bg); }
+.icon-gold  { background: var(--ut-gold-light); }
+.icon-navy  { background: #E0EAF3; }
+.icon-slate { background: var(--neutral-bg); }
+.icon-red   { background: var(--danger-bg); }
+
+.menu-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.menu-item-text strong {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ut-navy);
+  line-height: 1.3;
+}
+
+.menu-item-text small {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.menu-item-tag {
+  flex-shrink: 0;
+  font-size: 0.66rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--neutral-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.menu-item-danger .menu-item-text strong {
+  color: var(--danger-text);
+}
+
+.menu-item-danger:hover {
+  background: var(--danger-bg);
+}
+
+/* Chip akun pengguna */
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 10px 4px 4px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  font-family: inherit;
+  cursor: pointer;
+  color: var(--ut-navy);
+  transition: all var(--transition-fast);
+}
+
+.user-chip:hover {
+  border-color: #CBD5E1;
+  background: #FFF;
+  box-shadow: var(--shadow-sm);
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #FFF;
+  background: linear-gradient(135deg, var(--ut-blue) 0%, var(--ut-navy) 100%);
+  box-shadow: 0 0 0 2px #FFF, 0 0 0 3px var(--ut-gold);
+}
+
+.user-chip-text {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.user-chip-name {
+  font-size: 0.8rem;
+  font-weight: 700;
+  max-width: 140px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.user-chip-role {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+
+/* ==========================================================================
+   PANEL PENGATURAN: VERSI COLLAPSIBLE (<details>)
+   ========================================================================== */
+.config-card.config-collapsible {
+  padding: 0;
+  overflow: hidden;
+}
+
+.config-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px 24px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.config-summary::-webkit-details-marker {
+  display: none;
+}
+
+.config-summary:hover {
+  background: var(--bg-surface-alt);
+}
+
+.config-summary:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+}
+
+.config-summary .active-rule-summary {
+  margin-top: 4px;
+  font-size: 0.78rem;
+}
+
+.config-toggle-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+  background: #FFF;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--ut-blue);
+}
+
+.config-toggle-hint .menu-chevron {
+  transition: transform var(--transition-normal);
+}
+
+.config-collapsible .hint-open { display: none; }
+.config-collapsible[open] .hint-open { display: inline; }
+.config-collapsible[open] .hint-closed { display: none; }
+.config-collapsible[open] .config-toggle-hint .menu-chevron { transform: rotate(180deg); }
+
+.config-collapsible[open] .config-summary {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.config-body {
+  padding: 18px 24px 20px;
+}
+
+.config-body .config-header {
+  margin-bottom: 16px;
+}
+
+.config-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  max-width: 560px;
+}
+
+/* ==========================================================================
    PANEL PENGATURAN BATAS WAKTU (KEY REQUIREMENT)
    ========================================================================== */
 .config-card {
@@ -1447,6 +1760,8 @@ tbody tr.highlight-telat:hover td {
   .table-actions,
   .table-footer,
   .modal-overlay,
+  .menu-panel,
+  .database-period-banner,
   .toast-container {
     display: none !important;
   }
@@ -1529,6 +1844,28 @@ tbody tr.highlight-telat:hover td {
 
   .header-actions .btn {
     flex: 1;
+  }
+
+  .header-divider {
+    display: none;
+  }
+
+  .user-chip {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
+
+  .user-chip .menu-chevron {
+    margin-left: auto;
+  }
+
+  .config-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .config-toggle-hint {
+    align-self: flex-end;
   }
 
   .config-grid {
