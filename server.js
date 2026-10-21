@@ -68,9 +68,14 @@ const server = http.createServer((req, res) => {
     const ext = path.extname(filePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || 'application/octet-stream';
 
+    const isStaticAsset = ['.css', '.js', '.jpg', '.jpeg', '.png', '.svg', '.ico', '.xlsx', '.csv'].includes(ext);
+    const cacheHeader = isStaticAsset
+      ? 'public, max-age=86400, s-maxage=86400, stale-while-revalidate=604800'
+      : 'public, max-age=0, must-revalidate';
+
     res.writeHead(200, {
       'Content-Type': contentType,
-      'Cache-Control': 'no-cache'
+      'Cache-Control': cacheHeader
     });
 
     const stream = fs.createReadStream(filePath);
