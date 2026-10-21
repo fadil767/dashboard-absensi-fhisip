@@ -2,9 +2,10 @@
   "name": "dashboard-absensi-fhisip",
   "version": "1.0.0",
   "description": "Dashboard Rekapitulasi Absensi Pegawai FHISIP Universitas Terbuka dengan Opsi Batas Datang Terlambat dan Kepulangan",
+  "main": "server.js",
   "scripts": {
-    "start": "node scripts/local-server.js",
-    "dev": "node scripts/local-server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "fhisip",

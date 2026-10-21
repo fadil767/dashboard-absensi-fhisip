@@ -3,12 +3,16 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    { "source": "/", "destination": "/index.html" },
     { "source": "/masuk", "destination": "/index.html" },
     { "source": "/login", "destination": "/index.html" },
     { "source": "/landing", "destination": "/index.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" }
   ],
+  "functions": {
+    "server.js": {
+      "includeFiles": "{index.html,dashboard.html,css/**,js/**,assets/**,supabase/**,*.xlsx,*.csv}"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -16,8 +20,7 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
       ]
     },
     {

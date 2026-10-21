@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const PORT = process.env.PORT || 3300;
-const PUBLIC_DIR = path.resolve(__dirname, '..');
+const PUBLIC_DIR = __dirname;
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -25,14 +25,19 @@ const MIME_TYPES = {
 
 const server = http.createServer((req, res) => {
   const urlObj = new URL(req.url, 'http://localhost');
-  let reqPath = decodeURI(urlObj.pathname);
+  let reqPath = urlObj.searchParams.get('path');
+  if (reqPath) {
+    reqPath = '/' + reqPath;
+  } else {
+    reqPath = decodeURI(urlObj.pathname);
+  }
 
   // Bersihkan trailing slash
   if (reqPath.length > 1 && reqPath.endsWith('/')) {
     reqPath = reqPath.slice(0, -1);
   }
 
-  if (reqPath === '/' || reqPath === '/landing' || reqPath === '/landing.html' || reqPath === '/masuk' || reqPath === '/login') reqPath = '/index.html';
+  if (reqPath === '/' || reqPath === '/landing' || reqPath === '/landing.html') reqPath = '/index.html';
   if (reqPath === '/dashboard' || reqPath === '/dashboard.html') reqPath = '/dashboard.html';
 
   let filePath = path.join(PUBLIC_DIR, reqPath);
@@ -73,11 +78,14 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`================================================================`);
-  console.log(`  DASHBOARD ABSENSI PEGAWAI FHISIP UNIVERSITAS TERBUKA`);
-  console.log(`  Aplikasi berjalan di: http://localhost:${PORT}`);
-  console.log(`================================================================`);
-});
+if (process.env.VERCEL !== '1') {
+  server.listen(PORT, () => {
+    console.log(`================================================================`);
+    console.log(`  DASHBOARD ABSENSI PEGAWAI FHISIP UNIVERSITAS TERBUKA`);
+    console.log(`  Aplikasi berjalan di: http://localhost:${PORT}`);
+    console.log(`================================================================`);
+  });
+}
 
 module.exports = server;
+
