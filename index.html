@@ -169,6 +169,50 @@
     // Database Akun Terdaftar Resmi
     const REGISTERED_ACCOUNTS = [
       {
+        username: 'radhitya.putra@ecampus.ut.ac.id',
+        aliases: [
+          'radhitya.putra@ecampus.ut.ac.id',
+          'radhitya.putra',
+          'radhitya',
+          '201210002041'
+        ],
+        password: ['radhitya123', 'fhisip2026', 'ut12345'],
+        name: 'Radhitya Putranugraha, S.Psi.',
+        role: 'SDM & Kepegawaian FHISIP',
+        nip: '201210002041',
+        unit: 'Bagian Tata Usaha: Keuangan, SDM, dan Umum'
+      },
+      {
+        username: 'vikupaoki@ecampus.ut.ac.id',
+        aliases: [
+          'vikupaoki@ecampus.ut.ac.id',
+          'vikupaoki',
+          'viku.paoki',
+          'viku',
+          '198605122020032491'
+        ],
+        password: ['viku123', 'vikupaoki123', 'fhisip2026', 'ut12345'],
+        name: 'Viku Paoki, S.Sos.',
+        role: 'SDM & Administrasi Umum',
+        nip: '198605122020032491',
+        unit: 'Bagian Tata Usaha: Keuangan, SDM, dan Umum'
+      },
+      {
+        username: 'septintrif@ecampus.ut.ac.id',
+        aliases: [
+          'septintrif@ecampus.ut.ac.id',
+          'septintrif',
+          'septin.fadillah',
+          'septin',
+          '197005122013031700'
+        ],
+        password: ['septin123', 'septintrif123', 'fhisip2026', 'ut12345'],
+        name: 'Septin Tri Fadillah, S.M.',
+        role: 'SDM & Kepegawaian FHISIP',
+        nip: '197005122013031700',
+        unit: 'Bagian Tata Usaha: Keuangan, SDM, dan Umum'
+      },
+      {
         username: 'admin',
         aliases: ['admin', 'admin.fhisip', 'fhisip@ecampus.ut.ac.id', 'admin@ut.ac.id'],
         password: ['admin123', 'admin', 'ut12345', 'fhisip2026'],
@@ -309,7 +353,7 @@
         // Kredensial tidak valid
         btn.disabled = false;
         btn.innerHTML = '<span>Masuk ke dashboard</span>';
-        showAlert('Nama pengguna atau kata sandi tidak sesuai. Gunakan akun demo di bawah jika belum memiliki akun khusus.', 'error');
+        showAlert('Nama pengguna, email e-Campus, atau kata sandi tidak sesuai. Silakan periksa kembali kredensial akun Anda.', 'error');
       }, 400);
     }
 
