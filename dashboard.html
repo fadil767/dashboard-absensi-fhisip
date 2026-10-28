@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.4">
+  <link rel="stylesheet" href="css/style.css?v=2.5">
 </head>
 <body>
 
@@ -95,6 +95,11 @@
 
           <div class="menu-separator" role="separator"></div>
           <div class="menu-section-label">Hasil Filter Saat Ini</div>
+          <button type="button" id="btn-export-filtered-xlsx" class="menu-item" onclick="window.monthlyReportGenerator.exportFilteredRecapExcel()">
+            <span class="menu-item-icon icon-teal">📑</span>
+            <span class="menu-item-text"><strong>Excel Rekap Terolah (Filter)</strong><small>Diolah format Laporan Rekapitulasi UT</small></span>
+            <span class="menu-item-tag">.xlsx</span>
+          </button>
           <button type="button" id="btn-export-filtered-csv" class="menu-item" onclick="window.app.exportToCsv(true)">
             <span class="menu-item-icon icon-green">📊</span>
             <span class="menu-item-text"><strong>CSV Terfilter</strong><small>Hanya baris yang sedang ditampilkan</small></span>
@@ -110,7 +115,7 @@
           <div class="menu-section-label">Data Lengkap Terupdate (Live)</div>
           <button type="button" id="menu-item-xlsx-all" class="menu-item" onclick="window.app.exportLiveDatabaseXlsx('')">
             <span class="menu-item-icon icon-teal">📊</span>
-            <span class="menu-item-text"><strong>Database Excel Terpadu Live</strong><small>Seluruh data terbaru di Dashboard</small></span>
+            <span class="menu-item-text"><strong>Rekap &amp; Database Excel Live</strong><small>Sheet Rekapitulasi Terolah + Log Lengkap</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <button type="button" id="menu-item-csv-all" class="menu-item" onclick="window.app.exportToCsv(false)">
@@ -1218,7 +1223,7 @@
             <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
                 <input type="radio" name="export-group-by" value="kategori" checked>
-                <span><strong>Standar Biometrik UT</strong> (Dikelompokkan menjadi <em>ADMINISTRASI</em> dan <em>DOSEN</em>)</span>
+                <span><strong>Standar Biometrik UT</strong> (Urut <em>No. ID</em> dengan seksi beruntun <em>ADMINISTRASI / DOSEN / PTNPNS / FHISIP</em>)</span>
               </label>
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
                 <input type="radio" name="export-group-by" value="prodi">
@@ -1234,19 +1239,22 @@
           </div>
 
           <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; padding:12px; margin-top:16px; font-size:0.8rem; color:#166534; line-height:1.45;">
-            <strong>✨ Fitur Luaran Excel Resmi (100% Sinkron Data Live):</strong>
+            <strong>✨ Struktur Luaran Laporan Rekapitulasi Resmi UT (38 Kolom A–AL):</strong>
             <ul style="margin-left:18px; margin-top:4px;">
-              <li>Kop Laporan: <code>Laporan Rekapitulasi (FHISIP [Bulan])</code> lengkap rentang tanggal aktual terbaru.</li>
-              <li>Kolom Standar: Nama, ID, Normal, Riil, Absen, Trlmbt, Plg. Cpt, Lmbr (Sabtu/Minggu Tanpa Jam), D.Luar, Sakit, Cuti, Izin, Kehadiran, &amp; Sheet 2 <code>Log Detail</code>.</li>
-              <li>Formula Excel Otomatis: <code>=K-M</code> untuk Riil &amp; Kehadiran, <code>=SUM()</code> untuk Subtotal dan Grand Total.</li>
-              <li>Kop Tanda Tangan Resmi: Dekan FHISIP-UT (Dr. Meita Istianda, S.IP., M.Si. / NIP 196705191987012001).</li>
+              <li>Kop Laporan: <code>Laporan Rekapitulasi (FHISIP [Bulan] [Tahun])</code> &amp; <code>Dari DD-MM-YYYY s/d DD-MM-YYYY</code>.</li>
+              <li>Seksi Beruntun Biometrik: <code>ADMINISTRASI</code>, <code>DOSEN</code>, <code>PTNPNS</code>, dan <code>FHISIP</code> sesuai urutan <code>No. ID</code> resmi lengkap <code>Total: N</code> per seksi &amp; <code>Grand Total</code>.</li>
+              <li>Kolom Terolah Live: <code>Normal</code>, <code>Riil</code> (<code>=K-M</code>), <code>Absen/Hari</code>, <code>Trlmbt</code>, <code>Plg. Cpt</code>, <code>Lmbr</code>, <code>Tanpa Keterangan</code>, <code>D.Luar</code>, <code>Sakit</code>, <code>Cuti</code>, <code>Ijin</code>, <code>Jam Kerja</code>, <code>Rata-2 %</code>.</li>
+              <li>Pengesahan Resmi: <code>Oleh: Supervisor (DD/MM/YYYY)</code> &amp; Dekan FHISIP-UT (Dr. Meita Istianda, S.IP., M.Si. / NIP 196705191987012001).</li>
             </ul>
           </div>
 
-          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px; flex-wrap:wrap;">
             <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-export-monthly')">Batal</button>
-            <button type="button" id="btn-submit-monthly-export" class="btn btn-primary" onclick="handleExecuteMonthlyExport()" style="background:#0F766E; border-color:#0F766E;">
-              <span>📊</span> Unduh Laporan Excel Resmi
+            <button type="button" class="btn btn-outline" onclick="handleExecuteMonthlyExport('csv')" title="Unduh struktur Laporan Rekapitulasi dalam format .csv">
+              <span>📄</span> Unduh CSV Rekap
+            </button>
+            <button type="button" id="btn-submit-monthly-export" class="btn btn-primary" onclick="handleExecuteMonthlyExport('xlsx')" style="background:#0F766E; border-color:#0F766E;">
+              <span>📊</span> Unduh Laporan Excel Resmi (.xlsx)
             </button>
           </div>
         </form>
@@ -1274,13 +1282,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js?v=2.4"></script>
-  <script src="js/storage-manager.js?v=2.4"></script>
-  <script src="js/excel-import.js?v=2.4"></script>
-  <script src="js/excel-monthly-report.js?v=2.4"></script>
-  <script src="js/pdf-export.js?v=2.4"></script>
-  <script src="js/supabase-client.js?v=2.4"></script>
-  <script src="js/app.js?v=2.4"></script>
+  <script src="js/data-fhisip.js?v=2.5"></script>
+  <script src="js/storage-manager.js?v=2.5"></script>
+  <script src="js/excel-import.js?v=2.5"></script>
+  <script src="js/excel-monthly-report.js?v=2.5"></script>
+  <script src="js/pdf-export.js?v=2.5"></script>
+  <script src="js/supabase-client.js?v=2.5"></script>
+  <script src="js/app.js?v=2.5"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.updateSelectedMonthPreview === 'function') {
@@ -1297,7 +1305,7 @@
       }
     }
 
-    function handleExecuteMonthlyExport() {
+    function handleExecuteMonthlyExport(format = 'xlsx') {
       const ym = document.getElementById('export-month-select').value;
       const [y, m] = ym.split('-').map(Number);
       const groupRadio = document.querySelector('input[name="export-group-by"]:checked');
@@ -1305,12 +1313,17 @@
       const sigDate = document.getElementById('export-signature-date').value;
 
       if (window.monthlyReportGenerator) {
-        window.monthlyReportGenerator.exportMonthlyExcel({
+        const exportOpts = {
           year: y,
           month: m,
           groupBy: groupBy,
           signatureDate: sigDate
-        });
+        };
+        if (format === 'csv' && typeof window.monthlyReportGenerator.exportMonthlyCsv === 'function') {
+          window.monthlyReportGenerator.exportMonthlyCsv(exportOpts);
+        } else {
+          window.monthlyReportGenerator.exportMonthlyExcel(exportOpts);
+        }
       }
 
       if (window.app && window.app.closeModal) {
