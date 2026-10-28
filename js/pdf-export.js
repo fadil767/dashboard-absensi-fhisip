@@ -2,10 +2,16 @@
  * MODUL EKSPOR PDF RESMI FHISIP UNIVERSITAS TERBUKA
  * Menghasilkan dokumen PDF berkualitas tinggi, rapih, dan siap cetak
  * Menggunakan library pdfMake dengan Kop Surat Resmi & Blok Tanda Tangan Dekanat
+ * Tersinkronisasi 100% dengan data live terbaru di Dashboard & Supabase Cloud.
  */
 
 (function () {
   'use strict';
+
+  const MONTH_NAMES = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
 
   function initPdfMake() {
     if (window.pdfMake && window.pdfMake.vfs == null && window.vfsFonts) {
@@ -13,8 +19,17 @@
     }
   }
 
+  function formatPeriodTitle(ym) {
+    if (!ym || ym === 'all') return 'Semua Periode Terpadu';
+    const parts = String(ym).split('-').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && parts[1] >= 1 && parts[1] <= 12) {
+      return `${MONTH_NAMES[parts[1] - 1]} ${parts[0]}`;
+    }
+    return ym;
+  }
+
   /**
-   * Menghasilkan dan mengunduh berkas PDF Rekapitulasi Presensi
+   * Menghasilkan dan mengunduh berkas PDF Rekapitulasi Presensi Live
    * @param {string} mode 'harian' (Log Lengkap) | 'pegawai' (Akumulasi per Pegawai)
    * @param {boolean} useFiltered true jika ingin mencetak data yang sedang difilter saja
    */
@@ -27,28 +42,55 @@
     }
 
     const config = window.app.getConfig();
-    const evaluatedRecords = (useFiltered && window.app.getFilteredRecords && window.app.getFilteredRecords().length > 0)
-      ? window.app.getFilteredRecords()
-      : window.app.getEvaluatedRecords();
+    const filterState = (window.app.getActiveFilterState && window.app.getActiveFilterState()) || {};
+    const activePeriodLabel = formatPeriodTitle(filterState.bulan);
+
+    let evaluatedRecords = [];
+    if (useFiltered) {
+      evaluatedRecords = window.app.getFilteredRecords ? window.app.getFilteredRecords() : [];
+      if (evaluatedRecords.length === 0) {
+        if (window.app.showToast) {
+          window.app.showToast('Tidak ada data presensi yang sesuai filter saat ini untuk diekspor ke PDF.', 'warning');
+        } else {
+          alert('Tidak ada data presensi yang sesuai filter saat ini untuk diekspor.');
+        }
+        return;
+      }
+    } else {
+      const baseList = (window.app.getEvaluatedForActivePeriod)
+        ? window.app.getEvaluatedForActivePeriod()
+        : window.app.getEvaluatedRecords();
+      evaluatedRecords = baseList.slice().sort((a, b) =>
+        (b.tanggal || '').localeCompare(a.tanggal || '') ||
+        (a.nama_lengkap || '').localeCompare(b.nama_lengkap || '', 'id')
+      );
+    }
+
     const todayIndo = new Date().toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
     });
 
-    // Ringkasan KPI
+    // Ringkasan KPI Live (Konsisten dengan Kartu KPI di Dashboard)
     const totalLog = evaluatedRecords.length;
     let tepatCount = 0;
     let telatCount = 0;
     let totalMenitTelat = 0;
     let pulangCepatCount = 0;
+    let lemburCount = 0;
+    let izinCount = 0;
 
     evaluatedRecords.forEach(r => {
-      if (r.status_kehadiran === 'Hadir') {
+      if (r.isLembur) {
+        lemburCount++;
+      } else if (r.isIzinCutiSakitDinas) {
+        izinCount++;
+      } else if (r.status_kehadiran === 'Hadir') {
         if (r.isTerlambat) {
           telatCount++;
           totalMenitTelat += r.menitTerlambat;
-        } else {
+        } else if (!r.isTanpaMasuk) {
           tepatCount++;
         }
         if (r.isPulangCepat) {
@@ -61,46 +103,71 @@
     const persenTelat = totalLog > 0 ? ((telatCount / totalLog) * 100).toFixed(1) : 0;
     const rataMenitTelat = telatCount > 0 ? Math.round(totalMenitTelat / telatCount) : 0;
 
+    // Rentang tanggal aktual pada data yang diekspor
+    const sortedDates = [...new Set(evaluatedRecords.map(r => (r.tanggal || '').slice(0, 10)).filter(Boolean))].sort();
+    const dateSpanInfo = sortedDates.length > 0
+      ? `${sortedDates[0]} s/d ${sortedDates[sortedDates.length - 1]}`
+      : '-';
+
     // Judul & Tipe Laporan
     const judulLaporan = mode === 'pegawai'
-      ? 'LAPORAN AKUMULASI KEDISIPLINAN PER PEGAWAI'
-      : (useFiltered ? 'LAPORAN REKAPITULASI DETAIL PRESENSI (HASIL FILTER)' : 'LAPORAN REKAPITULASI DETAIL PRESENSI PEGAWAI');
+      ? `LAPORAN AKUMULASI KEDISIPLINAN PER PEGAWAI (${activePeriodLabel.toUpperCase()})`
+      : (useFiltered
+        ? 'LAPORAN REKAPITULASI DETAIL PRESENSI (HASIL FILTER AKTIF)'
+        : `LAPORAN REKAPITULASI DETAIL PRESENSI PEGAWAI (${activePeriodLabel.toUpperCase()})`);
 
     // Buat Isi Tabel berdasarkan mode
     let tableBody = [];
     let tableWidths = [];
 
     if (mode === 'pegawai') {
-      tableWidths = [25, 110, 150, 160, 60, 60, 90, 80];
+      tableWidths = [20, 92, 130, 138, 38, 38, 68, 40, 48, 52];
       tableBody.push([
         { text: 'No', style: 'tableHeader' },
         { text: 'NIP', style: 'tableHeader' },
         { text: 'Nama Lengkap', style: 'tableHeader' },
         { text: 'Program Studi / Unit', style: 'tableHeader' },
-        { text: 'Total Hadir', style: 'tableHeader' },
+        { text: 'Hadir', style: 'tableHeader' },
         { text: 'Tepat', style: 'tableHeader' },
         { text: 'Terlambat', style: 'tableHeader' },
+        { text: 'Lembur', style: 'tableHeader' },
+        { text: 'Izin/Cuti', style: 'tableHeader' },
         { text: '% Disiplin', style: 'tableHeader' }
       ]);
 
-      const pegawaiMap = window.app.getPegawaiAggregations();
-      pegawaiMap.forEach((p, idx) => {
+      const pegawaiRows = window.app.getPegawaiAggregations(evaluatedRecords, {
+        applyActiveFilters: Boolean(useFiltered || filterState.unit || filterState.search || filterState.kepegawaian)
+      });
+
+      pegawaiRows.forEach((p, idx) => {
         tableBody.push([
           { text: idx + 1, alignment: 'center' },
-          { text: p.nip, fontSize: 7.5 },
-          { text: p.nama_lengkap, bold: true },
-          { text: p.unit_kerja || '-', fontSize: 7.5 },
+          { text: p.nip || '-', fontSize: 7 },
+          { text: p.nama_lengkap || '-', bold: true },
+          { text: p.unit_kerja || '-', fontSize: 7 },
           { text: p.totalHadir, alignment: 'center', bold: true },
           { text: p.tepatCount, alignment: 'center', color: '#065F46' },
-          { 
-            text: p.telatCount > 0 ? `${p.telatCount}x (${p.totalMenitTelat}m)` : '0', 
-            alignment: 'center', 
+          {
+            text: p.telatCount > 0 ? `${p.telatCount}x (${p.totalMenitTelat}m)` : '0',
+            alignment: 'center',
             color: p.telatCount > 0 ? '#991B1B' : '#065F46',
             bold: p.telatCount > 0
           },
-          { 
-            text: `${p.pctDisiplin}%`, 
-            alignment: 'center', 
+          {
+            text: p.lemburCount > 0 ? `${p.lemburCount}` : '-',
+            alignment: 'center',
+            color: p.lemburCount > 0 ? '#5B21B6' : '#64748B',
+            bold: p.lemburCount > 0
+          },
+          {
+            text: p.izinCount > 0 ? `${p.izinCount}` : '-',
+            alignment: 'center',
+            color: p.izinCount > 0 ? '#1E40AF' : '#64748B',
+            bold: p.izinCount > 0
+          },
+          {
+            text: `${p.pctDisiplin}%`,
+            alignment: 'center',
             bold: true,
             color: p.pctDisiplin >= 95 ? '#065F46' : '#991B1B'
           }
@@ -108,8 +175,8 @@
       });
 
     } else {
-      // Mode Log Harian
-      tableWidths = [22, 60, 100, 135, 140, 48, 48, 95, 80];
+      // Mode Log Harian Lengkap (Seluruh data live tanpa pemotongan 500 baris)
+      tableWidths = [20, 56, 94, 128, 132, 44, 44, 90, 74];
       tableBody.push([
         { text: 'No', style: 'tableHeader' },
         { text: 'Tanggal', style: 'tableHeader' },
@@ -122,10 +189,7 @@
         { text: 'Keterangan', style: 'tableHeader' }
       ]);
 
-      // Batasi 500 baris pertama jika sangat banyak agar ukuran PDF tetap efisien
-      const exportList = evaluatedRecords.slice(0, 500);
-
-      exportList.forEach((r, idx) => {
+      evaluatedRecords.forEach((r, idx) => {
         let statusColor = '#065F46'; // Tepat waktu hijau
         if (r.isTerlambat) statusColor = '#991B1B'; // Telat merah
         else if (r.isPulangCepat) statusColor = '#92400E'; // Pulang cepat amber
@@ -144,14 +208,14 @@
 
         tableBody.push([
           { text: idx + 1, alignment: 'center' },
-          { text: r.tanggal, alignment: 'center', fontSize: 7.5 },
-          { text: r.nip, fontSize: 7.5 },
+          { text: r.tanggal, alignment: 'center', fontSize: 7 },
+          { text: r.nip || '-', fontSize: 7 },
           { text: r.nama_lengkap || 'Pegawai', bold: true },
-          { text: r.unit_kerja || '-', fontSize: 7.5 },
+          { text: r.unit_kerja || '-', fontSize: 7 },
           { text: masukText, alignment: 'center', bold: r.isTerlambat, color: r.isTerlambat ? '#991B1B' : (r.isNonTimed ? '#64748B' : '#000') },
           { text: pulangText, alignment: 'center', bold: r.isPulangCepat, color: r.isPulangCepat ? '#92400E' : (r.isNonTimed ? '#64748B' : '#000') },
-          { text: statusText, color: statusColor, bold: true, fontSize: 7.5 },
-          { text: r.keterangan || '-', fontSize: 7 }
+          { text: statusText, color: statusColor, bold: true, fontSize: 7.2 },
+          { text: r.keterangan || '-', fontSize: 6.8 }
         ]);
       });
     }
@@ -176,39 +240,41 @@
           margin: [0, 0, 0, 10]
         },
 
-        // 2. JUDUL DOKUMEN & AMBANG BATAS
+        // 2. JUDUL DOKUMEN & METADATA LIVE
         {
           text: judulLaporan,
           alignment: 'center',
-          fontSize: 12,
+          fontSize: 11.5,
           bold: true,
           color: '#002B49',
-          margin: [0, 2, 0, 3]
+          margin: [0, 2, 0, 2]
         },
         {
-          text: `Kebijakan Batas Jam Kerja: Masuk Maksimal ${config.jamMasuk} WIB ${config.toleransi > 0 ? `(+${config.toleransi}m toleransi)` : ''} | Pulang Minimal ${config.jamPulang} WIB (Jumat: ${config.jamPulangJumat} WIB)`,
+          text: `Periode: ${activePeriodLabel} (${dateSpanInfo}) | Kebijakan Jam Kerja: Masuk Maks. ${config.jamMasuk} WIB${config.toleransi > 0 ? ` (+${config.toleransi}m toleransi)` : ''} • Pulang Min. ${config.jamPulang} WIB (Jumat: ${config.jamPulangJumat} WIB)`,
           alignment: 'center',
-          fontSize: 8,
+          fontSize: 7.8,
           color: '#475569',
           margin: [0, 0, 0, 10]
         },
 
-        // 3. RINGKASAN METRIK KPI (Tabel Eksekutif)
+        // 3. RINGKASAN METRIK KPI (Tabel Eksekutif 5 Kolom)
         {
           table: {
-            widths: ['*', '*', '*', '*'],
+            widths: ['*', '*', '*', '*', '*'],
             body: [
               [
-                { text: 'Total Presensi Terdata', style: 'kpiLabel' },
-                { text: 'Kehadiran Tepat Waktu', style: 'kpiLabel' },
+                { text: 'Total Data Live', style: 'kpiLabel' },
+                { text: 'Hadir Tepat Waktu', style: 'kpiLabel' },
                 { text: 'Keterlambatan Datang', style: 'kpiLabel' },
-                { text: 'Pulang Lebih Awal', style: 'kpiLabel' }
+                { text: 'Pulang Lebih Awal', style: 'kpiLabel' },
+                { text: 'Lembur & Izin/Cuti', style: 'kpiLabel' }
               ],
               [
-                { text: `${totalLog} Catatan`, style: 'kpiValue' },
-                { text: `${tepatCount} (${persenTepat}%)`, style: 'kpiValue', color: '#065F46' },
-                { text: `${telatCount} (${persenTelat}%) • Rata ${rataMenitTelat}m`, style: 'kpiValue', color: '#991B1B' },
-                { text: `${pulangCepatCount} Kejadian`, style: 'kpiValue', color: '#92400E' }
+                { text: `${totalLog.toLocaleString('id-ID')} Data`, style: 'kpiValue' },
+                { text: `${tepatCount.toLocaleString('id-ID')} (${persenTepat}%)`, style: 'kpiValue', color: '#065F46' },
+                { text: `${telatCount.toLocaleString('id-ID')} (${persenTelat}%) • Rata ${rataMenitTelat}m`, style: 'kpiValue', color: '#991B1B' },
+                { text: `${pulangCepatCount.toLocaleString('id-ID')} Kejadian`, style: 'kpiValue', color: '#92400E' },
+                { text: `${lemburCount} Lembur • ${izinCount} Izin/Dinas`, style: 'kpiValue', color: '#4C1D95' }
               ]
             ]
           },
@@ -234,14 +300,14 @@
             },
             hLineColor: function () { return '#E2E8F0'; },
             vLineColor: function () { return '#E2E8F0'; },
-            paddingLeft: function () { return 5; },
-            paddingRight: function () { return 5; },
+            paddingLeft: function () { return 4; },
+            paddingRight: function () { return 4; },
             paddingTop: function () { return 4; },
             paddingBottom: function () { return 4; }
           }
         },
 
-        // 5. BLOK TANDA TANGAN PEJABAT
+        // 5. BLOK TANDA TANGAN PEJABAT RESMI DEKANAT FHISIP UT
         {
           columns: [
             {
@@ -262,10 +328,10 @@
               width: 260,
               stack: [
                 { text: `Tangerang Selatan, ${todayIndo}`, fontSize: 8 },
-                { text: 'Dekan FHISIP Universitas Terbuka', bold: true, fontSize: 8.5 },
+                { text: 'Dekan FHISIP Universitas Terbuka,', bold: true, fontSize: 8.5 },
                 { text: '', margin: [0, 35, 0, 0] },
-                { text: '( .................................................... )', bold: true, fontSize: 8.5 },
-                { text: 'NIP. .................................................', fontSize: 8, color: '#555' }
+                { text: 'Dr. Meita Istianda, S.IP., M.Si.', bold: true, fontSize: 8.5 },
+                { text: 'NIP 196705191987012001', fontSize: 8, color: '#334155' }
               ]
             }
           ],
@@ -277,7 +343,7 @@
       styles: {
         tableHeader: {
           bold: true,
-          fontSize: 8,
+          fontSize: 7.5,
           color: '#FFFFFF',
           alignment: 'center'
         },
@@ -289,23 +355,26 @@
         },
         kpiValue: {
           bold: true,
-          fontSize: 9.5,
+          fontSize: 9,
           color: '#002B49',
           alignment: 'center'
         }
       },
 
       defaultStyle: {
-        fontSize: 7.5,
+        fontSize: 7.3,
         lineHeight: 1.15
       }
     };
 
-    const prefixName = useFiltered ? 'Rekap_Presensi_Terfilter' : (mode === 'pegawai' ? 'Rekap_Disiplin_Pegawai' : 'Rekap_Presensi_FHISIP_UT');
+    const periodSlug = filterState.bulan ? `_${filterState.bulan}` : '_Semua_Periode';
+    const prefixName = useFiltered
+      ? 'Rekap_Presensi_Terfilter'
+      : (mode === 'pegawai' ? `Rekap_Disiplin_Pegawai${periodSlug}` : `Rekap_Presensi_FHISIP_UT${periodSlug}`);
     const fileName = `${prefixName}_${config.jamMasuk.replace(':', '.')}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
     window.pdfMake.createPdf(docDefinition).download(fileName);
-    window.app.showToast(`Dokumen PDF ${useFiltered ? 'Hasil Filter' : 'resmi'} (${totalLog} data) berhasil diunduh!`, 'success');
+    window.app.showToast(`Dokumen PDF ${useFiltered ? 'Hasil Filter' : activePeriodLabel} (${totalLog.toLocaleString('id-ID')} data live) berhasil diunduh!`, 'success');
   }
 
   window.pdfExport = {

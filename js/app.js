@@ -490,16 +490,97 @@
   // ==========================================================================
   // RENDER & RECALCULATION PIPELINE
   // ==========================================================================
+  const MONTH_NAMES_ID = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  function formatPeriodLabel(ym) {
+    if (!ym || ym === 'all') return 'Semua Periode';
+    const parts = String(ym).split('-').map(Number);
+    if (parts.length === 2 && !isNaN(parts[0]) && parts[1] >= 1 && parts[1] <= 12) {
+      return `${MONTH_NAMES_ID[parts[1] - 1]} ${parts[0]}`;
+    }
+    return ym;
+  }
+
+  function getEvaluatedForActivePeriod() {
+    const all = state.absensiList.map(evaluateRecord);
+    return state.filters.bulan
+      ? all.filter(r => r.tanggal && r.tanggal.startsWith(state.filters.bulan))
+      : all;
+  }
+
+  function syncDynamicPeriodButtons(monthCountsMap) {
+    const groupEl = document.getElementById('period-filter-group');
+    if (!groupEl) return;
+
+    // Hapus tombol bulan dinamis lama yang sudah kosong / digantikan
+    groupEl.querySelectorAll('.period-btn-dynamic').forEach(btn => btn.remove());
+
+    // Render tombol bulan tambahan di luar 2026-09 & 2026-10 jika ada data baru (mis. 2026-11, 2026-12, dst.)
+    const extraMonths = Array.from(monthCountsMap.keys())
+      .filter(ym => ym !== '2026-09' && ym !== '2026-10' && (monthCountsMap.get(ym) || 0) > 0)
+      .sort();
+
+    extraMonths.forEach(ym => {
+      const count = monthCountsMap.get(ym) || 0;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'period-btn period-btn-dynamic' + (state.filters.bulan === ym ? ' active' : '');
+      btn.setAttribute('data-period', ym);
+      btn.title = `Hanya tampilkan data presensi periode ${formatPeriodLabel(ym)}`;
+      btn.innerHTML = `
+        <span>📅</span>
+        <span>${escapeHtml(formatPeriodLabel(ym))}</span>
+        <span class="period-count">${count.toLocaleString('id-ID')}</span>
+      `;
+      groupEl.appendChild(btn);
+    });
+  }
+
   function evaluateAndRender() {
     // 1. Evaluasi seluruh data absensi dengan konfigurasi batas waktu aktif
     const evaluatedAll = state.absensiList.map(evaluateRecord);
 
-    // Hitung live counter periode
-    const septCount = state.absensiList.filter(a => a.tanggal && a.tanggal.startsWith('2026-09')).length;
-    const octCount = state.absensiList.filter(a => a.tanggal && a.tanggal.startsWith('2026-10')).length;
+    // Hitung live counter periode & pegawai aktif per bulan
+    const monthCountsMap = new Map();
+    const septPegawaiSet = new Set();
+    const octPegawaiSet = new Set();
+
+    state.absensiList.forEach(a => {
+      if (!a || !a.tanggal || a.tanggal.length < 7) return;
+      const ym = a.tanggal.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) {
+        monthCountsMap.set(ym, (monthCountsMap.get(ym) || 0) + 1);
+      }
+      if (ym === '2026-09' && a.nip) septPegawaiSet.add(String(a.nip).trim());
+      if (ym === '2026-10' && a.nip) octPegawaiSet.add(String(a.nip).trim());
+    });
+
+    const septCount = monthCountsMap.get('2026-09') || 0;
+    const octCount = monthCountsMap.get('2026-10') || 0;
+
     setText('count-period-all', state.absensiList.length.toLocaleString('id-ID'));
     setText('count-period-sept', septCount.toLocaleString('id-ID'));
     setText('count-period-oct', octCount.toLocaleString('id-ID'));
+    syncDynamicPeriodButtons(monthCountsMap);
+
+    // Sinkronkan angka live pada Modal Kamus & Referensi Database (#modal-database-ref)
+    setText('ref-sept-count', septCount.toLocaleString('id-ID'));
+    setText('ref-sept-pegawai', `${septPegawaiSet.size} Org`);
+    setText('ref-oct-count', octCount.toLocaleString('id-ID'));
+    setText('ref-oct-pegawai', `${octPegawaiSet.size} Org`);
+    setText('ref-pegawai-count', `${state.pegawaiList.length} Pegawai`);
+    setText('ref-total-count', `${state.absensiList.length.toLocaleString('id-ID')} Data`);
+
+    // Sinkronkan angka live pada Modal Ekspor Bulanan (#modal-export-monthly)
+    if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.refreshExportModalUI === 'function') {
+      window.monthlyReportGenerator.refreshExportModalUI({
+        preferActiveFilter: false,
+        updateSignatureDate: false
+      });
+    }
 
     // Catatan untuk periode aktif (jika filter bulan dipilih)
     const evaluatedForPeriod = state.filters.bulan
@@ -1298,22 +1379,25 @@
       });
     });
 
-    // 3.5. Basis Data Periode Buttons
-    document.querySelectorAll('.period-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const period = btn.getAttribute('data-period');
-        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+    // 3.5. Basis Data Periode Buttons (Delegated agar mendukung bulan baru hasil Import)
+    const periodGroupEl = document.getElementById('period-filter-group');
+    if (periodGroupEl) {
+      periodGroupEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('.period-btn');
+        if (!btn) return;
+        const period = btn.getAttribute('data-period') || 'all';
+        periodGroupEl.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.filters.bulan = (period === 'all' ? '' : period);
         state.pagination.currentPage = 1;
         evaluateAndRender();
         const totalNow = state.absensiList.length.toLocaleString('id-ID');
         const periodCount = state.absensiList.filter(a => a.tanggal && a.tanggal.startsWith(period)).length.toLocaleString('id-ID');
-        showToast(period === 'all' 
-          ? `Menampilkan semua periode (${totalNow} data presensi tersinkron)` 
-          : `Menampilkan data presensi periode ${period === '2026-09' ? 'September 2026' : 'Oktober 2026'} (${periodCount} data)`);
+        showToast(period === 'all'
+          ? `Menampilkan semua periode (${totalNow} data presensi live tersinkron)`
+          : `Menampilkan data presensi periode ${formatPeriodLabel(period)} (${periodCount} data live)`);
       });
-    });
+    }
 
     // 4. View Tabs
     document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -1853,11 +1937,23 @@
   // EXPORT & PRINT
   // ==========================================================================
   function exportToCsv(useFiltered = false) {
-    const recordsToExport = (useFiltered && state.lastFilteredRecords && state.lastFilteredRecords.length > 0)
-      ? state.lastFilteredRecords
-      : state.absensiList.map(evaluateRecord);
+    let recordsToExport = [];
+    if (useFiltered) {
+      recordsToExport = state.lastFilteredRecords || [];
+      if (recordsToExport.length === 0) {
+        showToast('Tidak ada data presensi yang sesuai filter saat ini untuk diekspor ke CSV.', 'warning');
+        return;
+      }
+    } else {
+      recordsToExport = state.absensiList
+        .map(evaluateRecord)
+        .sort((a, b) =>
+          (b.tanggal || '').localeCompare(a.tanggal || '') ||
+          (a.nama_lengkap || '').localeCompare(b.nama_lengkap || '', 'id')
+        );
+    }
 
-    // Header CSV resmi
+    // Header CSV resmi lengkap Status Kehadiran & Evaluasi Disiplin
     const headers = [
       'No',
       'Tanggal',
@@ -1870,6 +1966,7 @@
       'Terlambat (Menit)',
       'Jam Pulang',
       'Batas Pulang',
+      'Status Kehadiran',
       'Status Disiplin',
       'Keterangan'
     ];
@@ -1890,7 +1987,8 @@
         r.isNonTimed ? 0 : (r.menitTerlambat || 0),
         r.isNonTimed ? '-' : (r.jam_pulang || '-'),
         r.isNonTimed ? '-' : batasPulangRow,
-        `"${r.statusLabel}"`,
+        `"${(r.status_kehadiran || 'Hadir').replace(/"/g, '""')}"`,
+        `"${(r.statusLabel || '').replace(/"/g, '""')}"`,
         `"${(r.keterangan || '').replace(/"/g, '""')}"`
       ];
     });
@@ -1900,12 +1998,13 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    const prefix = useFiltered ? 'Rekap_Presensi_Terfilter_FHISIP_UT' : 'Rekap_Absensi_FHISIP_UT';
+    const prefix = useFiltered ? 'Rekap_Presensi_Terfilter_FHISIP_UT' : 'Database_Presensi_Live_FHISIP_UT';
     link.setAttribute('download', `${prefix}_${state.config.jamMasuk.replace(':', '.')}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    showToast(`File CSV ${useFiltered ? 'Hasil Filter' : 'Lengkap'} (${recordsToExport.length} data) berhasil diunduh!`);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
+    showToast(`File CSV ${useFiltered ? 'Hasil Filter' : 'Database Live Terpadu'} (${recordsToExport.length.toLocaleString('id-ID')} data) berhasil diunduh!`, 'success');
   }
 
   function printOfficialReport() {
@@ -1988,11 +2087,26 @@
     };
   }
 
-  function getPegawaiAggregations(evaluatedList = state.absensiList.map(evaluateRecord)) {
+  function getPegawaiAggregations(evaluatedList = getEvaluatedForActivePeriod(), filterOpts = {}) {
     const rekapMap = new Map();
+    const extraEmployees = new Map();
+    const knownNips = new Set(state.pegawaiList.map(p => String(p.nip).trim()));
+
     evaluatedList.forEach(r => {
-      if (!rekapMap.has(r.nip)) {
-        rekapMap.set(r.nip, {
+      if (!r || !r.nip) return;
+      const nipKey = String(r.nip).trim();
+
+      if (!knownNips.has(nipKey) && !extraEmployees.has(nipKey)) {
+        extraEmployees.set(nipKey, {
+          nip: nipKey,
+          nama_lengkap: r.nama_lengkap || ('Pegawai ' + nipKey),
+          status_kepegawaian: 'PNS',
+          unit_kerja: r.unit_kerja || 'FHISIP'
+        });
+      }
+
+      if (!rekapMap.has(nipKey)) {
+        rekapMap.set(nipKey, {
           totalHadir: 0,
           tepatCount: 0,
           telatCount: 0,
@@ -2002,7 +2116,7 @@
           izinCount: 0
         });
       }
-      const agg = rekapMap.get(r.nip);
+      const agg = rekapMap.get(nipKey);
       if (r.isLembur) {
         agg.lemburCount++;
       } else if (r.isIzinCutiSakitDinas) {
@@ -2021,8 +2135,26 @@
       }
     });
 
-    const rows = state.pegawaiList.map(p => {
-      const agg = rekapMap.get(p.nip) || {
+    let pegawaiPool = [...state.pegawaiList, ...extraEmployees.values()];
+    if (filterOpts.applyActiveFilters) {
+      if (state.filters.search) {
+        const q = state.filters.search.toLowerCase();
+        pegawaiPool = pegawaiPool.filter(p =>
+          (p.nama_lengkap || '').toLowerCase().includes(q) ||
+          (p.nip || '').toLowerCase().includes(q) ||
+          (p.unit_kerja || '').toLowerCase().includes(q)
+        );
+      }
+      if (state.filters.unit) {
+        pegawaiPool = pegawaiPool.filter(p => p.unit_kerja === state.filters.unit);
+      }
+      if (state.filters.kepegawaian) {
+        pegawaiPool = pegawaiPool.filter(p => p.status_kepegawaian === state.filters.kepegawaian);
+      }
+    }
+
+    const rows = pegawaiPool.map(p => {
+      const agg = rekapMap.get(String(p.nip).trim()) || {
         totalHadir: 0,
         tepatCount: 0,
         telatCount: 0,
@@ -2265,20 +2397,31 @@
     applyRemoteDataset,
     applyRemoteConfigUpdate,
     getConfig: () => ({ ...state.config }),
+    getActiveFilterState: () => ({ ...state.filters }),
+    formatPeriodLabel,
     getEvaluatedRecords: () => state.absensiList.map(evaluateRecord),
+    getEvaluatedForActivePeriod,
     getFilteredRecords: () => state.lastFilteredRecords || [],
-    getPegawaiAggregations: () => getPegawaiAggregations(),
+    getPegawaiAggregations: (list, opts) => getPegawaiAggregations(list, opts),
+    exportLiveDatabaseXlsx: (ym = '') => {
+      const menuExport = document.getElementById('menu-export');
+      const menuData = document.getElementById('menu-data');
+      if (menuExport && typeof menuExport.hidePopover === 'function') { try { menuExport.hidePopover(); } catch (_) {} }
+      if (menuData && typeof menuData.hidePopover === 'function') { try { menuData.hidePopover(); } catch (_) {} }
+      if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.exportLiveDatabaseXlsx === 'function') {
+        window.monthlyReportGenerator.exportLiveDatabaseXlsx(ym);
+      } else {
+        alert('Modul Excel belum siap dimuat.');
+      }
+    },
     clearFilterItem,
     resetFilters,
     showToast,
     openDatabaseRefModal: () => openModal('modal-database-ref'),
     downloadMasterSeptember: () => {
-      const a = document.createElement('a');
-      a.href = 'Database_September_2026_Clean_FHISIP.xlsx';
-      a.download = 'Database_September_2026_Clean_FHISIP.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.exportLiveDatabaseXlsx === 'function') {
+        window.monthlyReportGenerator.exportLiveDatabaseXlsx('2026-09');
+      }
     },
     downloadTemplate: () => {
       const a = document.createElement('a');

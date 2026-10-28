@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.3">
+  <link rel="stylesheet" href="css/style.css?v=2.4">
 </head>
 <body>
 
@@ -107,10 +107,15 @@
           </button>
 
           <div class="menu-separator" role="separator"></div>
-          <div class="menu-section-label">Data Lengkap</div>
-          <button type="button" id="menu-item-csv-all" class="menu-item" onclick="window.app.exportToCsv()">
+          <div class="menu-section-label">Data Lengkap Terupdate (Live)</div>
+          <button type="button" id="menu-item-xlsx-all" class="menu-item" onclick="window.app.exportLiveDatabaseXlsx('')">
+            <span class="menu-item-icon icon-teal">📊</span>
+            <span class="menu-item-text"><strong>Database Excel Terpadu Live</strong><small>Seluruh data terbaru di Dashboard</small></span>
+            <span class="menu-item-tag">.xlsx</span>
+          </button>
+          <button type="button" id="menu-item-csv-all" class="menu-item" onclick="window.app.exportToCsv(false)">
             <span class="menu-item-icon icon-green">📁</span>
-            <span class="menu-item-text"><strong>Database Terpadu Semua Bulan</strong><small>Seluruh catatan presensi</small></span>
+            <span class="menu-item-text"><strong>Database CSV Terpadu Live</strong><small>Seluruh catatan presensi terupdate</small></span>
             <span class="menu-item-tag">.csv</span>
           </button>
         </div>
@@ -126,11 +131,11 @@
             <span class="menu-item-icon icon-gold">📚</span>
             <span class="menu-item-text"><strong>Kamus &amp; Referensi Data</strong><small>Metadata &amp; standar struktur kolom</small></span>
           </button>
-          <a id="menu-item-sept-clean" class="menu-item" href="/Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx">
+          <button type="button" id="menu-item-sept-clean" class="menu-item" onclick="window.app.exportLiveDatabaseXlsx('')">
             <span class="menu-item-icon icon-navy">📥</span>
-            <span class="menu-item-text"><strong>Database September Bersih</strong><small>Hasil olah data September 2026</small></span>
+            <span class="menu-item-text"><strong>Database Presensi Live</strong><small>Unduh Excel bersih terupdate saat ini</small></span>
             <span class="menu-item-tag">.xlsx</span>
-          </a>
+          </button>
           <a id="menu-item-template" class="menu-item" href="/Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx">
             <span class="menu-item-icon icon-slate">📋</span>
             <span class="menu-item-text"><strong>Template Bulan Berikutnya</strong><small>Format standar input presensi</small></span>
@@ -1009,15 +1014,15 @@
             <div class="db-ref-stats">
               <div class="db-ref-stat-item">
                 <span>Total Presensi</span>
-                <strong style="color:var(--ut-blue);">2.150</strong>
+                <strong id="ref-sept-count" style="color:var(--ut-blue);">2.150</strong>
               </div>
               <div class="db-ref-stat-item">
                 <span>Pegawai Aktif</span>
-                <strong>132 Org</strong>
+                <strong id="ref-sept-pegawai">132 Org</strong>
               </div>
               <div class="db-ref-stat-item">
                 <span>Status</span>
-                <span class="badge-status badge-tepat" style="font-size:0.7rem; padding:2px 6px;">Ternormalisasi</span>
+                <span class="badge-status badge-tepat" style="font-size:0.7rem; padding:2px 6px;">Live Sync</span>
               </div>
             </div>
           </div>
@@ -1033,15 +1038,15 @@
             <div class="db-ref-stats">
               <div class="db-ref-stat-item">
                 <span>Total Presensi</span>
-                <strong style="color:#10B981;">948</strong>
+                <strong id="ref-oct-count" style="color:#10B981;">1.421</strong>
               </div>
               <div class="db-ref-stat-item">
                 <span>Pegawai Aktif</span>
-                <strong>121 Org</strong>
+                <strong id="ref-oct-pegawai">133 Org</strong>
               </div>
               <div class="db-ref-stat-item">
                 <span>Status</span>
-                <span class="badge-status badge-tepat" style="font-size:0.7rem; padding:2px 6px;">Operasional</span>
+                <span class="badge-status badge-tepat" style="font-size:0.7rem; padding:2px 6px;">Live Terupdate</span>
               </div>
             </div>
           </div>
@@ -1057,11 +1062,11 @@
             <div class="db-ref-stats">
               <div class="db-ref-stat-item">
                 <span>Master Pegawai</span>
-                <strong style="color:var(--ut-navy);">135 Pegawai</strong>
+                <strong id="ref-pegawai-count" style="color:var(--ut-navy);">135 Pegawai</strong>
               </div>
               <div class="db-ref-stat-item">
                 <span>Total Semua Data</span>
-                <strong>3.098 Data</strong>
+                <strong id="ref-total-count">3.571 Data</strong>
               </div>
             </div>
           </div>
@@ -1150,17 +1155,23 @@
         <!-- Download Buttons Reference Section -->
         <div style="background:#F1F5F9; border:1px solid #CBD5E1; border-radius:8px; padding:14px; margin-top:14px;">
           <h4 style="font-size:0.88rem; color:var(--ut-navy); margin-bottom:8px;">
-            📥 Berkas Referensi Siap Unduh untuk Pengolahan Lanjutan:
+            📥 Berkas Database Live Terupdate &amp; Template Siap Unduh:
           </h4>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
-            <a href="Database_September_2026_Clean_FHISIP.xlsx" download="Database_September_2026_Clean_FHISIP.xlsx" class="btn btn-primary btn-sm" style="text-decoration:none;">
-              <span>📊</span> Unduh Master September 2026 Bersih (.xlsx)
-            </a>
+            <button type="button" class="btn btn-primary btn-sm" onclick="window.app.exportLiveDatabaseXlsx('')">
+              <span>📊</span> Unduh Database Live Semua Bulan (.xlsx)
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportLiveDatabaseXlsx('2026-09')" style="background:#FFF;">
+              <span>📅</span> September 2026 Live (.xlsx)
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportLiveDatabaseXlsx('2026-10')" style="background:#FFF;">
+              <span>📅</span> Oktober 2026 Live (.xlsx)
+            </button>
             <a href="Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none; background:#FFF;">
-              <span>📋</span> Unduh Template Format Presensi (.xlsx)
+              <span>📋</span> Template Format Presensi (.xlsx)
             </a>
             <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportToCsv(false)" style="background:#FFF;">
-              <span>📁</span> Unduh Database Terpadu Semua Bulan (CSV)
+              <span>📁</span> Database Terpadu Live (CSV)
             </button>
           </div>
         </div>
@@ -1173,7 +1184,7 @@
   </div>
 
   <!-- =====================================================================
-       MODAL 7: UNDUH LAPORAN REKAPITULASI BULANAN (FORMAT RESMI EXCEL)
+       MODAL 7: UNDUH LAPORAN REKAPITULASI BULANAN (FORMAT RESMI EXCEL LIVE)
        ===================================================================== -->
   <div class="modal-overlay" id="modal-export-monthly" role="dialog" aria-modal="true">
     <div class="modal-card" style="max-width: 660px;">
@@ -1181,7 +1192,7 @@
         <div>
           <h3>📑 Ekspor Laporan Rekapitulasi Kehadiran Bulanan</h3>
           <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
-            Menghasilkan berkas Excel (.xlsx) dengan struktur, formula, dan kop tanda tangan Dekan FHISIP UT sesuai standar resmi.
+            Menghasilkan berkas Excel (.xlsx) langsung dari <strong>data live terupdate di Dashboard &amp; Cloud</strong> lengkap kop tanda tangan Dekan FHISIP UT.
           </p>
         </div>
         <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-export-monthly')">&times;</button>
@@ -1192,12 +1203,14 @@
           <div class="form-group">
             <label for="export-month-select">📅 Pilih Periode Bulan Laporan</label>
             <select id="export-month-select" class="form-control" style="font-weight:600;" onchange="handleExportMonthChange(this.value)">
-              <option value="2026-09" selected>September 2026 (2.150 data presensi)</option>
-              <option value="2026-10">Oktober 2026 (948 data presensi)</option>
+              <option value="2026-09">September 2026 (Memuat data live...)</option>
+              <option value="2026-10" selected>Oktober 2026 (Memuat data live...)</option>
               <option value="2026-11">November 2026</option>
               <option value="2026-12">Desember 2026</option>
             </select>
-            <small style="color:var(--text-muted); font-size:0.75rem;">Sistem akan mengagregasi data scan, hari kerja normal, keterlambatan, cuti, dan sakit.</small>
+            <div id="export-live-summary-box" style="background:#F8FAFC; border:1px solid #CBD5E1; border-radius:8px; padding:10px 12px; margin-top:10px;">
+              Memuat ringkasan data live Dashboard...
+            </div>
           </div>
 
           <div class="form-group" style="margin-top:14px;">
@@ -1209,23 +1222,23 @@
               </label>
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
                 <input type="radio" name="export-group-by" value="prodi">
-                <span><strong>Per Program Studi / Unit Kerja</strong> (13 Prodi & Bagian Tata Usaha FHISIP UT)</span>
+                <span><strong>Per Program Studi / Unit Kerja</strong> (13 Prodi &amp; Bagian Tata Usaha FHISIP UT)</span>
               </label>
             </div>
           </div>
 
           <div class="form-group" style="margin-top:14px;">
             <label for="export-signature-date">✍️ Tanggal Pengesahan / Tanda Tangan Laporan</label>
-            <input type="date" id="export-signature-date" class="form-control" value="2026-09-30">
+            <input type="date" id="export-signature-date" class="form-control" value="2026-10-31">
             <small style="color:var(--text-muted); font-size:0.75rem;">Akan tercantum pada blok tanda tangan Dekan FHISIP-UT (Tangerang Selatan).</small>
           </div>
 
           <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; padding:12px; margin-top:16px; font-size:0.8rem; color:#166534; line-height:1.45;">
-            <strong>✨ Fitur Luaran Excel Resmi:</strong>
+            <strong>✨ Fitur Luaran Excel Resmi (100% Sinkron Data Live):</strong>
             <ul style="margin-left:18px; margin-top:4px;">
-              <li>Kop Laporan: <code>Laporan Rekapitulasi (FHISIP [Bulan])</code> lengkap rentang tanggal.</li>
-              <li>Kolom Standar: Nama, ID, Normal, Riil, Absen, Trlmbt, Plg. Cpt, D.Luar, Sakit, Cuti, Izin, Kehadiran, Jam Kerja.</li>
-              <li>Formula Excel Otomatis: <code>=K-M</code> untuk Riil & Kehadiran, <code>=SUM()</code> untuk Subtotal dan Grand Total.</li>
+              <li>Kop Laporan: <code>Laporan Rekapitulasi (FHISIP [Bulan])</code> lengkap rentang tanggal aktual terbaru.</li>
+              <li>Kolom Standar: Nama, ID, Normal, Riil, Absen, Trlmbt, Plg. Cpt, Lmbr (Sabtu/Minggu Tanpa Jam), D.Luar, Sakit, Cuti, Izin, Kehadiran, &amp; Sheet 2 <code>Log Detail</code>.</li>
+              <li>Formula Excel Otomatis: <code>=K-M</code> untuk Riil &amp; Kehadiran, <code>=SUM()</code> untuk Subtotal dan Grand Total.</li>
               <li>Kop Tanda Tangan Resmi: Dekan FHISIP-UT (Dr. Meita Istianda, S.IP., M.Si. / NIP 196705191987012001).</li>
             </ul>
           </div>
@@ -1239,14 +1252,14 @@
         </form>
 
         <div style="border-top:1px dashed #CBD5E1; margin-top:16px; padding-top:14px;">
-          <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">Unduhan Cepat Berkas Siap Pakai:</span>
+          <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">Unduhan Cepat Rekapitulasi Live (Format Standar UT):</span>
           <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
-            <a href="/Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_September_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
-              📥 Rekapitulasi September 2026 Resmi (.xlsx)
-            </a>
-            <a href="/Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" download="Rekapitulasi_Kehadiran_Oktober_2026_Resmi.xlsx" class="btn btn-outline btn-xs" style="text-decoration:none;">
-              📥 Rekapitulasi Oktober 2026 Resmi (.xlsx)
-            </a>
+            <button type="button" class="btn btn-outline btn-xs" onclick="window.monthlyReportGenerator.exportMonthlyExcel({ year: 2026, month: 9, groupBy: 'kategori' }); window.app.closeModal('modal-export-monthly');">
+              📥 Rekap September 2026 Resmi (<span id="quick-export-sept-count">Live</span>)
+            </button>
+            <button type="button" class="btn btn-outline btn-xs" onclick="window.monthlyReportGenerator.exportMonthlyExcel({ year: 2026, month: 10, groupBy: 'kategori' }); window.app.closeModal('modal-export-monthly');">
+              📥 Rekap Oktober 2026 Resmi (<span id="quick-export-oct-count">Live</span>)
+            </button>
           </div>
         </div>
 
@@ -1261,15 +1274,19 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js?v=2.3"></script>
-  <script src="js/storage-manager.js?v=2.3"></script>
-  <script src="js/excel-import.js?v=2.3"></script>
-  <script src="js/excel-monthly-report.js?v=2.3"></script>
-  <script src="js/pdf-export.js?v=2.3"></script>
-  <script src="js/supabase-client.js?v=2.3"></script>
-  <script src="js/app.js?v=2.3"></script>
+  <script src="js/data-fhisip.js?v=2.4"></script>
+  <script src="js/storage-manager.js?v=2.4"></script>
+  <script src="js/excel-import.js?v=2.4"></script>
+  <script src="js/excel-monthly-report.js?v=2.4"></script>
+  <script src="js/pdf-export.js?v=2.4"></script>
+  <script src="js/supabase-client.js?v=2.4"></script>
+  <script src="js/app.js?v=2.4"></script>
   <script>
     function handleExportMonthChange(ymVal) {
+      if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.updateSelectedMonthPreview === 'function') {
+        window.monthlyReportGenerator.updateSelectedMonthPreview(ymVal, true);
+        return;
+      }
       const parts = ymVal.split('-');
       const y = parseInt(parts[0], 10);
       const m = parseInt(parts[1], 10);
