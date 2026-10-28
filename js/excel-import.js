@@ -414,17 +414,25 @@
     if (!stagedImportData || stagedImportData.length === 0) return;
 
     if (mode === 'replace') {
-      if (!confirm(`Konfirmasi: Menggantikan seluruh data presensi yang ada saat ini dengan ${stagedImportData.length} data baru dari file "${stagedFileName}"?`)) {
+      if (!confirm(`Konfirmasi: Menggantikan seluruh data presensi yang ada saat ini dengan ${stagedImportData.length} data baru dari file "${stagedFileName}"? Perubahan ini akan disinkronkan live ke semua perangkat.`)) {
         return;
       }
-      window.app.setAbsensiList([...stagedImportData]);
-      window.app.closeModal('modal-import-preview');
-      window.app.evaluateAndRender();
-      window.app.showToast(`Berhasil menggantikan seluruh database dengan ${stagedImportData.length} catatan baru (${stagedFileName})!`, 'success');
+      const snapshotData = [...stagedImportData];
+      const snapshotFile = stagedFileName;
 
-      // Auto-Sync ke Supabase Cloud di latar belakang
-      if (window.supabaseSync && typeof window.supabaseSync.pushData === 'function') {
-        window.supabaseSync.pushData().catch(e => console.warn('[Auto-Sync Supabase Warning]', e));
+      window.app.setAbsensiList(snapshotData);
+      window.app.closeModal('modal-import-preview');
+      window.app.closeModal('modal-import');
+      window.app.evaluateAndRender();
+      window.app.showToast(`Berhasil menggantikan seluruh database dengan ${snapshotData.length.toLocaleString('id-ID')} catatan baru (${snapshotFile})!`, 'success');
+
+      // Live Auto-Sync ke Supabase Cloud & Broadcast ke semua device
+      if (window.supabaseSync && typeof window.supabaseSync.replaceAllInCloud === 'function') {
+        window.supabaseSync.replaceAllInCloud(snapshotData, { fileName: snapshotFile })
+          .then(total => {
+            window.app.showToast(`☁️ ${total.toLocaleString('id-ID')} data tersinkronisasi live ke semua perangkat!`, 'info');
+          })
+          .catch(e => console.warn('[Auto-Sync Replace Supabase Warning]', e));
       }
     } else {
       // Smart Upsert (Gabungkan & Perbarui)
@@ -439,39 +447,45 @@
       let added = 0;
       let updated = 0;
       const combined = [...current];
+      const deltaRows = [];
 
       stagedImportData.forEach(item => {
         const key = `${item.nip}|${item.tanggal}`;
         if (keyMap.has(key)) {
           // Perbarui data yang sudah ada (misal revisi jam tap atau status izin/cuti)
           const idx = keyMap.get(key);
-          combined[idx] = {
+          const mergedItem = {
             ...combined[idx],
             jam_masuk: item.jam_masuk !== null ? item.jam_masuk : combined[idx].jam_masuk,
             jam_pulang: item.jam_pulang !== null ? item.jam_pulang : combined[idx].jam_pulang,
             status_kehadiran: item.status_kehadiran || combined[idx].status_kehadiran,
             keterangan: item.keterangan || combined[idx].keterangan
           };
+          combined[idx] = mergedItem;
+          deltaRows.push(mergedItem);
           updated++;
         } else {
           // Tambahkan baris baru
           combined.push(item);
           keyMap.set(key, combined.length - 1);
+          deltaRows.push(item);
           added++;
         }
       });
 
+      const snapshotFile = stagedFileName;
       window.app.setAbsensiList(combined);
       window.app.closeModal('modal-import-preview');
+      window.app.closeModal('modal-import');
       window.app.evaluateAndRender();
       window.app.showToast(`Berhasil menggabungkan: ${added} data baru ditambahkan, ${updated} data diperbarui!`, 'success');
 
-      // Auto-Sync ke Supabase Cloud di latar belakang
+      // Live Auto-Sync delta ke Supabase Cloud & Broadcast ke semua device
       if (window.supabaseSync && typeof window.supabaseSync.pushData === 'function') {
-        window.supabaseSync.pushData()
+        window.supabaseSync.pushData(deltaRows, { added, updated, fileName: snapshotFile })
           .then(total => {
-            console.log(`[Auto-Sync Supabase] ${total} data tersimpan di Supabase.`);
-            window.app.showToast(`☁️ ${total} data otomatis tersinkronisasi ke Supabase Cloud!`, 'info');
+            console.log(`[Auto-Sync Supabase] ${total} data delta tersimpan di Supabase.`);
+            window.app.showToast(`☁️ ${total.toLocaleString('id-ID')} perubahan otomatis tersinkronisasi live ke semua perangkat!`, 'info');
           })
           .catch(e => {
             console.warn('[Auto-Sync Supabase Warning]', e);

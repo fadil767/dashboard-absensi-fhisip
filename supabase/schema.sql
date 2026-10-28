@@ -71,13 +71,58 @@ ALTER TABLE public.absensi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 
 -- KEBIJAKAN AKSES PUBLIC
+DROP POLICY IF EXISTS "Public read unit_kerja" ON public.unit_kerja;
+DROP POLICY IF EXISTS "Public modify unit_kerja" ON public.unit_kerja;
+DROP POLICY IF EXISTS "Public read pegawai" ON public.pegawai;
+DROP POLICY IF EXISTS "Public modify pegawai" ON public.pegawai;
+DROP POLICY IF EXISTS "Public read pengaturan" ON public.pengaturan_jam_kerja;
+DROP POLICY IF EXISTS "Public modify pengaturan" ON public.pengaturan_jam_kerja;
+DROP POLICY IF EXISTS "Public read absensi" ON public.absensi;
+DROP POLICY IF EXISTS "Public modify absensi" ON public.absensi;
+DROP POLICY IF EXISTS "Public read audit_log" ON public.audit_log;
+DROP POLICY IF EXISTS "Public insert audit_log" ON public.audit_log;
+
 CREATE POLICY "Public read unit_kerja" ON public.unit_kerja FOR SELECT USING (true);
+CREATE POLICY "Public modify unit_kerja" ON public.unit_kerja FOR ALL USING (true);
 CREATE POLICY "Public read pegawai" ON public.pegawai FOR SELECT USING (true);
+CREATE POLICY "Public modify pegawai" ON public.pegawai FOR ALL USING (true);
 CREATE POLICY "Public read pengaturan" ON public.pengaturan_jam_kerja FOR SELECT USING (true);
+CREATE POLICY "Public modify pengaturan" ON public.pengaturan_jam_kerja FOR ALL USING (true);
 CREATE POLICY "Public read absensi" ON public.absensi FOR SELECT USING (true);
 CREATE POLICY "Public modify absensi" ON public.absensi FOR ALL USING (true);
-CREATE POLICY "Public modify pegawai" ON public.pegawai FOR ALL USING (true);
-CREATE POLICY "Public modify pengaturan" ON public.pengaturan_jam_kerja FOR ALL USING (true);
+CREATE POLICY "Public read audit_log" ON public.audit_log FOR SELECT USING (true);
+CREATE POLICY "Public insert audit_log" ON public.audit_log FOR INSERT WITH CHECK (true);
+
+-- KONFIGURASI SUPABASE REALTIME (LIVE MULTI-DEVICE SYNC)
+ALTER TABLE public.absensi REPLICA IDENTITY FULL;
+ALTER TABLE public.pegawai REPLICA IDENTITY FULL;
+ALTER TABLE public.pengaturan_jam_kerja REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_publication_tables
+            WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'absensi'
+        ) THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.absensi;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_publication_tables
+            WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pegawai'
+        ) THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.pegawai;
+        END IF;
+
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_publication_tables
+            WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'pengaturan_jam_kerja'
+        ) THEN
+            ALTER PUBLICATION supabase_realtime ADD TABLE public.pengaturan_jam_kerja;
+        END IF;
+    END IF;
+END $$;
 
 -- VIEW REKAP PRESENSI DENGAN EVALUASI DISIPLIN
 CREATE OR REPLACE VIEW public.v_rekap_absensi_fhisip AS

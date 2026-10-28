@@ -36,8 +36,6 @@ Modul ini menyediakan skema basis data PostgreSQL resmi untuk **Sistem Rekapitul
 2. Salin:
    - **Project URL** (contoh: `https://abcdefghijkl.supabase.co`)
    - **anon / public key** (API key publik)
-3. Buka Dashboard Absensi Anda di peramban, klik tombol **"☁️ Supabase"** di header atas.
-4. Tempel Project URL dan anon key ke form yang tersedia, lalu klik **"⚡ Test Koneksi"**.
-5. Anda dapat mengklik:
-   - **"⬇ Tarik Data dari Cloud"** untuk menyinkronkan data dari Supabase ke dashboard lokal.
-   - **"⬆ Unggah Data Lokal ke Cloud"** untuk mengirimkan pembaruan absensi lokal ke cloud.
+3. Buka Dashboard Absensi Anda di peramban, klik indikator **"Live Sync"** atau menu **"🗄️ Kelola Data → Supabase Cloud"** di header atas.
+4. Dashboard akan otomatis terhubung secara **Real-Time (Live-to-Update)** antar-perangkat menggunakan kanal WebSocket Supabase Realtime (`Broadcast`, `Presence`, & `Postgres Changes`).
+5. Setiap penambahan, pengeditan, penghapusan, maupun impor presensi Excel oleh satu pengguna akan langsung muncul secara otomatis (*live*) di layar pengguna/perangkat lain tanpa perlu memuat ulang (*refresh*) halaman.

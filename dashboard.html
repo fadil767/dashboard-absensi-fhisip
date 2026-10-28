@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=2.2">
 </head>
 <body>
 
@@ -44,7 +44,13 @@
           <img src="assets/logo.jpg" alt="Logo Universitas Terbuka" class="brand-logo" onerror="this.src='https://www.ut.ac.id/wp-content/uploads/2023/07/logo-ut.png';">
         </div>
         <div class="brand-info">
-          <h1>UNIVERSITAS TERBUKA</h1>
+          <h1>
+            UNIVERSITAS TERBUKA
+            <button type="button" id="storage-status-pill" class="storage-status-pill" onclick="window.supabaseSync && window.supabaseSync.openModal()" title="Klik untuk melihat status Live Sync &amp; perangkat aktif" aria-label="Status Sinkronisasi Live Antar-Perangkat">
+              <span class="status-indicator-dot"></span>
+              <span id="storage-status-label">Menghubungkan Live Sync...</span>
+            </button>
+          </h1>
           <p>Dashboard Rekapitulasi Presensi & Manajemen Disiplin Pegawai (Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik)</p>
         </div>
       </div>
@@ -132,10 +138,10 @@
           </a>
 
           <div class="menu-separator" role="separator"></div>
-          <div class="menu-section-label">Sinkronisasi</div>
+          <div class="menu-section-label">Sinkronisasi Multi-Device</div>
           <button type="button" id="menu-item-supabase" class="menu-item" onclick="window.supabaseSync.openModal()">
-            <span class="menu-item-icon icon-green">☁️</span>
-            <span class="menu-item-text"><strong>Supabase Cloud</strong><small>Koneksi, tarik &amp; unggah data</small></span>
+            <span class="menu-item-icon icon-green">⚡</span>
+            <span class="menu-item-text"><strong>Live Sync &amp; Cloud</strong><small>Sinkronisasi real-time antar perangkat &amp; user</small></span>
           </button>
 
           <div class="menu-separator" role="separator"></div>
@@ -858,50 +864,106 @@
   </div>
 
   <!-- =====================================================================
-       MODAL 5: INTEGRASI & SINKRONISASI DATABASE SUPABASE CLOUD
+       MODAL 5: PUSAT LIVE SYNC MULTI-PERANGKAT & SUPABASE CLOUD REALTIME
        ===================================================================== -->
-  <div class="modal-overlay" id="modal-supabase" role="dialog" aria-modal="true">
-    <div class="modal-card" style="max-width: 580px;">
+  <div class="modal-overlay" id="modal-supabase" role="dialog" aria-modal="true" aria-labelledby="modal-supabase-title">
+    <div class="modal-card" style="max-width: 640px;">
       <div class="modal-header">
-        <h3>☁️ Integrasi Database Supabase Cloud</h3>
-        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-supabase')">&times;</button>
+        <div>
+          <h3 id="modal-supabase-title">⚡ Live Sync Multi-Perangkat &amp; Cloud</h3>
+          <p style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
+            Sinkronisasi data presensi secara real-time (live-to-update) antar laptop, HP, dan pengguna.
+          </p>
+        </div>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-supabase')" aria-label="Tutup dialog">&times;</button>
       </div>
-      <div class="modal-body">
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-          <span style="font-size:0.85rem; font-weight:700; color:var(--ut-navy);">Status Koneksi:</span>
-          <span id="supabase-status-badge" class="badge-status badge-alpha">○ Belum Terhubung</span>
+      <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+
+        <!-- Ringkasan Status Koneksi Live -->
+        <div class="live-sync-hero-grid">
+          <div class="live-sync-stat-box">
+            <span class="live-sync-stat-label">Status Kanal Realtime</span>
+            <div style="margin-top:4px;">
+              <span id="supabase-status-badge" class="badge-status badge-tepat">● Menghubungkan...</span>
+            </div>
+          </div>
+          <div class="live-sync-stat-box">
+            <span class="live-sync-stat-label">Perangkat Aktif</span>
+            <strong id="live-sync-online-count" class="live-sync-stat-val">1 Perangkat</strong>
+          </div>
+          <div class="live-sync-stat-box">
+            <span class="live-sync-stat-label">Sinkronisasi Terakhir</span>
+            <strong id="live-sync-last-time" class="live-sync-stat-val" style="font-size:0.84rem;">Baru saja</strong>
+          </div>
         </div>
 
-        <div class="form-group">
-          <label for="supabase-url">Supabase Project URL *</label>
-          <input type="text" id="supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co">
+        <!-- Banner Antrean Offline (muncul otomatis jika ada perubahan saat offline) -->
+        <div id="live-sync-pending-banner" class="live-pending-banner" style="display:none;"></div>
+
+        <!-- Toggle Auto Live-to-Update -->
+        <div class="live-toggle-row">
+          <div>
+            <strong>Sinkronisasi Otomatis Live-to-Update</strong>
+            <p>Perbarui tampilan secara instan saat pengguna di perangkat lain menambah, mengubah, atau mengimpor data.</p>
+          </div>
+          <label class="live-switch" aria-label="Aktifkan Sinkronisasi Otomatis Live-to-Update">
+            <input type="checkbox" id="toggle-auto-live-sync" checked onchange="window.supabaseSync.setAutoSyncEnabled(this.checked)">
+            <span class="live-switch-slider"></span>
+          </label>
         </div>
 
-        <div class="form-group">
-          <label for="supabase-key">Supabase Anon / Public API Key *</label>
-          <input type="password" id="supabase-key" class="form-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...">
+        <!-- Daftar Perangkat & User Online Saat Ini -->
+        <div class="live-section-block">
+          <div class="live-section-title">🟢 Perangkat &amp; Pengguna Online Saat Ini</div>
+          <div id="live-sync-peer-list" class="live-peer-list">
+            <!-- Diisi otomatis via Supabase Presence -->
+          </div>
         </div>
 
-        <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:8px; padding:12px; font-size:0.78rem; line-height:1.5; color:var(--text-muted); margin-top:8px;">
-          <strong>💡 Petunjuk Setup Supabase:</strong>
-          <ol style="margin-left: 18px; margin-top: 4px;">
-            <li>Buat project baru di <a href="https://supabase.com" target="_blank" rel="noopener" style="color:var(--ut-blue); font-weight:700;">supabase.com</a>.</li>
-            <li>Jalankan skrip <code>supabase/schema.sql</code> dan <code>supabase/seed.sql</code> pada menu <strong>SQL Editor</strong> di dashboard Supabase Anda.</li>
-            <li>Salin <strong>Project URL</strong> dan <strong>anon key</strong> dari menu <em>Project Settings → API</em> ke form di atas.</li>
-          </ol>
+        <!-- Feed Aktivitas Perubahan Data Real-time Antar-User -->
+        <div class="live-section-block">
+          <div class="live-section-title">📡 Riwayat Pembaruan Live Antar-User (Sesi Ini)</div>
+          <div id="live-sync-activity-list" class="live-activity-list">
+            <div class="live-activity-empty">Menunggu aktivitas perubahan presensi antar-perangkat...</div>
+          </div>
         </div>
 
+        <!-- Tombol Aksi Sinkronisasi Cepat -->
         <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
-          <button type="button" id="btn-test-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.testConnection()">
-            ⚡ Test Koneksi
+          <button type="button" id="btn-sync-now-supabase" class="btn btn-primary btn-sm" onclick="window.supabaseSync.syncNow()">
+            🔄 Sinkronkan Sekarang
           </button>
           <button type="button" id="btn-pull-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.pull()">
-            ⬇ Tarik Data dari Cloud
+            ⬇ Tarik Data Cloud
           </button>
-          <button type="button" id="btn-push-supabase" class="btn btn-primary btn-sm" onclick="window.supabaseSync.push()">
-            ⬆ Unggah Data Lokal ke Cloud
+          <button type="button" id="btn-push-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.push()">
+            ⬆ Unggah ke Cloud
           </button>
         </div>
+
+        <!-- Konfigurasi Lanjutan Endpoint Supabase (Collapsible agar rapi) -->
+        <details class="live-config-details">
+          <summary>⚙️ Pengaturan Endpoint Database Supabase (Lanjutan)</summary>
+          <div class="live-config-body">
+            <div class="form-group">
+              <label for="supabase-url">Supabase Project URL *</label>
+              <input type="text" id="supabase-url" class="form-control" placeholder="https://xyzcompany.supabase.co">
+            </div>
+
+            <div class="form-group">
+              <label for="supabase-key">Supabase Publishable / Anon Key *</label>
+              <input type="password" id="supabase-key" class="form-control" placeholder="sb_publishable_...">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
+              <small style="color:var(--text-muted); font-size:0.75rem;">Skema SQL tersedia di <code>supabase/schema.sql</code>.</small>
+              <button type="button" id="btn-test-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.testConnection()">
+                ⚡ Simpan &amp; Uji Koneksi
+              </button>
+            </div>
+          </div>
+        </details>
+
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-supabase')">Tutup</button>
@@ -1191,11 +1253,12 @@
 
   <!-- Application Logic Modules -->
   <script src="js/data-fhisip.js"></script>
-  <script src="js/excel-import.js"></script>
+  <script src="js/storage-manager.js?v=2.2"></script>
+  <script src="js/excel-import.js?v=2.2"></script>
   <script src="js/excel-monthly-report.js"></script>
   <script src="js/pdf-export.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/supabase-client.js?v=2.2"></script>
+  <script src="js/app.js?v=2.2"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       const parts = ymVal.split('-');

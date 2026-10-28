@@ -1,10 +1,11 @@
 /**
- * Lightweight Zero-Dependency Local Static Server
+ * Lightweight Zero-Dependency Local Static & Live-Sync Server
  * Dashboard Rekapitulasi Absensi Pegawai FHISIP Universitas Terbuka
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const PORT = process.env.PORT || 3300;
 const PUBLIC_DIR = __dirname;
@@ -23,6 +24,34 @@ const MIME_TYPES = {
   '.csv': 'text/csv; charset=utf-8'
 };
 
+// =========================================================================
+// REAL-TIME SSE CLIENTS (Sinkronisasi Live Antar-Device di Jaringan Lokal)
+// =========================================================================
+const sseClients = new Set();
+
+function broadcastSSE(eventName, payload) {
+  if (sseClients.size === 0) return;
+  const msg = `event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const clientRes of sseClients) {
+    try {
+      clientRes.write(msg);
+    } catch (_) {
+      sseClients.delete(clientRes);
+    }
+  }
+}
+
+const sseHeartbeat = setInterval(() => {
+  for (const clientRes of sseClients) {
+    try {
+      clientRes.write(': heartbeat\n\n');
+    } catch (_) {
+      sseClients.delete(clientRes);
+    }
+  }
+}, 20000);
+if (typeof sseHeartbeat.unref === 'function') sseHeartbeat.unref();
+
 const server = http.createServer((req, res) => {
   const urlObj = new URL(req.url, 'http://localhost');
   let reqPath = urlObj.searchParams.get('path');
@@ -39,6 +68,132 @@ const server = http.createServer((req, res) => {
 
   if (reqPath === '/' || reqPath === '/landing' || reqPath === '/landing.html') reqPath = '/index.html';
   if (reqPath === '/dashboard' || reqPath === '/dashboard.html') reqPath = '/dashboard.html';
+
+  // Di Vercel Serverless (read-only filesystem), sinkronisasi penuh ditangani oleh Supabase Cloud Realtime
+  if ((reqPath === '/api/events' || reqPath === '/api/absensi') && process.env.VERCEL === '1') {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('Cloud Mode Active');
+    return;
+  }
+
+  // =========================================================================
+  // ENDPOINT STREAM LIVE UPDATE SSE (/api/events - Khusus Server Lokal / LAN)
+  // =========================================================================
+  if (reqPath === '/api/events' && req.method === 'GET') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'X-Accel-Buffering': 'no'
+    });
+    res.write('retry: 3000\n\n');
+    sseClients.add(res);
+    broadcastSSE('presence', { onlineDevices: sseClients.size, timestamp: new Date().toISOString() });
+
+    req.on('close', () => {
+      sseClients.delete(res);
+      broadcastSSE('presence', { onlineDevices: sseClients.size, timestamp: new Date().toISOString() });
+    });
+    return;
+  }
+
+  // =========================================================================
+  // API PERSISTENSI DATA LOKAL (/api/absensi)
+  // Memastikan data edit & hapus tersimpan permanen pada disk lokal
+  // =========================================================================
+  if (reqPath === '/api/absensi') {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const dataDir = path.join(PUBLIC_DIR, 'data');
+    const storageFile = path.join(dataDir, 'absensi-storage.json');
+
+    if (req.method === 'GET') {
+      if (fs.existsSync(storageFile)) {
+        res.writeHead(200, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store, no-cache, must-revalidate'
+        });
+        const stream = fs.createReadStream(storageFile);
+        stream.pipe(res);
+      } else {
+        res.writeHead(404, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, message: 'Belum ada data disk tersimpan' }));
+      }
+      return;
+    }
+
+    if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk;
+        if (body.length > 50 * 1024 * 1024) { // 50MB limit
+          req.destroy();
+        }
+      });
+
+      req.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+          }
+          const tmpFile = storageFile + '.tmp';
+          fs.writeFileSync(tmpFile, JSON.stringify(parsed, null, 2), 'utf8');
+          fs.renameSync(tmpFile, storageFile);
+
+          const recordCount = Array.isArray(parsed.absensi) ? parsed.absensi.length : 0;
+          const nowIso = new Date().toISOString();
+
+          broadcastSSE('sync', {
+            type: 'SERVER_DATA_UPDATED',
+            clientId: parsed.clientId || null,
+            actor: parsed.actor || null,
+            count: recordCount,
+            timestamp: nowIso
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({
+            success: true,
+            message: 'Data berhasil disimpan di disk lokal',
+            count: recordCount,
+            timestamp: nowIso
+          }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      try {
+        if (fs.existsSync(storageFile)) {
+          fs.unlinkSync(storageFile);
+        }
+        broadcastSSE('sync', {
+          type: 'SERVER_DATA_RESET',
+          timestamp: new Date().toISOString()
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: true, message: 'Data disk lokal berhasil direset' }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+      return;
+    }
+  }
 
   let filePath = path.join(PUBLIC_DIR, reqPath);
 
@@ -83,14 +238,29 @@ const server = http.createServer((req, res) => {
   });
 });
 
+function getLocalNetworkAddresses() {
+  const nets = os.networkInterfaces();
+  const urls = [];
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] || []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        urls.push(`http://${net.address}:${PORT}`);
+      }
+    }
+  }
+  return urls;
+}
+
 if (process.env.VERCEL !== '1') {
-  server.listen(PORT, () => {
+  server.listen(PORT, '0.0.0.0', () => {
+    const lanUrls = getLocalNetworkAddresses();
     console.log(`================================================================`);
     console.log(`  DASHBOARD ABSENSI PEGAWAI FHISIP UNIVERSITAS TERBUKA`);
-    console.log(`  Aplikasi berjalan di: http://localhost:${PORT}`);
+    console.log(`  Lokal PC  : http://localhost:${PORT}`);
+    lanUrls.forEach(u => console.log(`  Jaringan  : ${u} (Buka di HP/Device lain)`));
+    console.log(`  Live Sync : Aktif (SSE /api/events + Supabase Cloud Realtime)`);
     console.log(`================================================================`);
   });
 }
 
 module.exports = server;
-

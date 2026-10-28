@@ -42,7 +42,9 @@
       pageSize: 25
     },
     lastFilteredRecords: [],
-    editingRecordId: null
+    editingRecordId: null,
+    liveHighlights: new Map(), // key: nip|tanggal -> { seq, actorName, label, timestamp }
+    liveSeqCounter: 0
   };
 
   // ==========================================================================
@@ -53,28 +55,43 @@
     loadData();
     bindEvents();
     evaluateAndRender();
+    initMultiTabSync();
+
+    // Set default tanggal tambah ke hari ini agar praktis saat input harian
+    const elTambahTanggal = document.getElementById('modal-tambah-tanggal');
+    if (elTambahTanggal) {
+      const todayIso = new Date().toISOString().slice(0, 10);
+      elTambahTanggal.value = todayIso;
+    }
+
+    // Aktifkan Live Multi-Device Sync (Supabase Cloud Realtime)
+    if (window.supabaseSync && typeof window.supabaseSync.initLiveSync === 'function') {
+      window.supabaseSync.initLiveSync();
+    }
   }
 
   function loadConfig() {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
-      if (saved) {
-        state.config = { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
-      }
-    } catch (e) {
-      console.warn('Gagal membaca konfigurasi dari localStorage:', e);
-      state.config = { ...DEFAULT_CONFIG };
-    }
+    state.config = window.StorageManager
+      ? window.StorageManager.loadConfig(DEFAULT_CONFIG)
+      : { ...DEFAULT_CONFIG };
 
     // Sync input fields with config
     syncConfigUI();
   }
 
-  function saveConfig() {
-    try {
-      localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(state.config));
-    } catch (e) {
-      console.warn('Gagal menyimpan konfigurasi ke localStorage:', e);
+  function saveConfig(options = {}) {
+    if (window.StorageManager) {
+      window.StorageManager.saveConfig(state.config, options);
+    } else {
+      try {
+        localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(state.config));
+      } catch (e) {
+        console.warn('Gagal menyimpan konfigurasi ke localStorage:', e);
+      }
+    }
+
+    if (!options.skipCloud && window.supabaseSync && typeof window.supabaseSync.syncConfigToCloud === 'function') {
+      window.supabaseSync.syncConfigToCloud(state.config).catch(() => {});
     }
   }
 
@@ -113,24 +130,50 @@
     const initial = window.INITIAL_FHISIP_DATA || { pegawai: [], absensi: [] };
     state.pegawaiList = initial.pegawai || [];
 
-    try {
-      const savedAbsensi = localStorage.getItem(STORAGE_KEY_ABSENSI);
-      if (savedAbsensi) {
-        const parsed = JSON.parse(savedAbsensi);
-        if (Array.isArray(parsed) && parsed.length >= (initial.absensi ? initial.absensi.length : 3000)) {
-          state.absensiList = parsed;
-        } else {
-          // If stored records are from older session with fewer rows, load full 3.098 dataset
-          state.absensiList = initial.absensi ? [...initial.absensi] : [];
-          saveAbsensi();
-        }
+    if (window.StorageManager) {
+      // 1. Baca data sinkron untuk pemuatan UI secepat kilat (tanpa jeda/blank)
+      const meta = window.StorageManager.getMeta();
+      const syncList = window.StorageManager.KEYS ? localStorage.getItem(window.StorageManager.KEYS.ABSENSI) : null;
+      let parsed = null;
+      try {
+        if (syncList) parsed = JSON.parse(syncList);
+      } catch (e) {}
+
+      // Jika pengguna sudah memiliki data tersimpan (termasuk jika berkurang akibat hapus data)
+      if (parsed && Array.isArray(parsed) && (meta.isInitialized || parsed.length > 0)) {
+        state.absensiList = parsed;
+        console.log(`[App] Memuat ${parsed.length} data presensi dari penyimpanan lokal stabil.`);
       } else {
+        // Kunjungan pertama (fresh baseline)
         state.absensiList = initial.absensi ? [...initial.absensi] : [];
-        saveAbsensi();
+        window.StorageManager.saveAbsensi(state.absensiList, { isUserModified: false });
       }
-    } catch (e) {
-      console.warn('Gagal membaca data absensi dari localStorage:', e);
-      state.absensiList = initial.absensi ? [...initial.absensi] : [];
+
+      // 2. Verifikasi dan pulihkan secara asinkron dari IndexedDB / Server API
+      window.StorageManager.loadAbsensiInitial(initial.absensi).then(records => {
+        if (records && Array.isArray(records)) {
+          if (records.length !== state.absensiList.length) {
+            state.absensiList = records;
+            populateDateDropdown();
+            evaluateAndRender();
+          }
+        }
+      }).catch(err => {
+        console.warn('[App] Gagal inisialisasi async StorageManager:', err);
+      });
+    } else {
+      // Fallback reguler
+      try {
+        const savedAbsensi = localStorage.getItem(STORAGE_KEY_ABSENSI);
+        if (savedAbsensi) {
+          const parsed = JSON.parse(savedAbsensi);
+          state.absensiList = Array.isArray(parsed) ? parsed : (initial.absensi ? [...initial.absensi] : []);
+        } else {
+          state.absensiList = initial.absensi ? [...initial.absensi] : [];
+        }
+      } catch (e) {
+        state.absensiList = initial.absensi ? [...initial.absensi] : [];
+      }
     }
 
     populateUnitDropdown();
@@ -138,15 +181,14 @@
     populatePegawaiSelect();
   }
 
-  function saveAbsensi() {
-    try {
-      localStorage.setItem(STORAGE_KEY_ABSENSI, JSON.stringify(state.absensiList));
-    } catch (e) {
-      console.warn('Gagal menyimpan data absensi ke localStorage:', e);
-      if (e.name === 'QuotaExceededError' || e.code === 22 || e.number === -2147024882) {
-        if (typeof showToast === 'function') {
-          showToast('Kapasitas penyimpanan lokal browser hampir penuh (>5MB). Sangat disarankan sinkronisasi ke Supabase Cloud atau cadangkan berkas Excel.', 'warning');
-        }
+  function saveAbsensi(isUserModified = true, extraOptions = {}) {
+    if (window.StorageManager) {
+      window.StorageManager.saveAbsensi(state.absensiList, { isUserModified, ...extraOptions });
+    } else {
+      try {
+        localStorage.setItem(STORAGE_KEY_ABSENSI, JSON.stringify(state.absensiList));
+      } catch (e) {
+        console.warn('Gagal menyimpan data absensi ke localStorage:', e);
       }
     }
   }
@@ -493,8 +535,14 @@
 
     state.lastFilteredRecords = filtered;
 
-    // 2. Sorting Multi-Opsi
+    // 2. Sorting Multi-Opsi (Prioritaskan baris yang baru ditambahkan/diupdate secara live di atas)
     filtered.sort((a, b) => {
+      const liveA = state.liveHighlights.get(`${a.nip}|${a.tanggal}`);
+      const liveB = state.liveHighlights.get(`${b.nip}|${b.tanggal}`);
+      if (liveA && !liveB) return -1;
+      if (!liveA && liveB) return 1;
+      if (liveA && liveB && liveA.seq !== liveB.seq) return liveB.seq - liveA.seq;
+
       switch (state.filters.sort) {
         case 'telat_desc':
           return b.menitTerlambat - a.menitTerlambat;
@@ -557,7 +605,12 @@
 
     tbody.innerHTML = pageItems.map((r, idx) => {
       const rowNo = startIndex + idx + 1;
-      const isLateRow = r.isTerlambat ? 'highlight-telat' : '';
+      const liveMeta = state.liveHighlights.get(`${r.nip}|${r.tanggal}`);
+      const isFreshFlash = liveMeta && (Date.now() - liveMeta.timestamp < 12000);
+      const rowClasses = [
+        r.isTerlambat ? 'highlight-telat' : '',
+        isFreshFlash ? 'row-live-flash' : ''
+      ].filter(Boolean).join(' ');
 
       // Employee metadata
       const emp = state.pegawaiList.find(p => p.nip === r.nip) || {};
@@ -579,11 +632,16 @@
         pulangPill = `<span class="time-pill" style="background:#FFFBEB; color:#B45309; border:1px solid #FDE68A;" title="Belum melakukan scan keluar">Belum Scan ⏳</span>`;
       }
 
+      const liveBadgeHtml = liveMeta
+        ? `<div style="margin-top:3px;"><span class="badge-live-row" title="Diperbarui oleh ${escapeHtml(liveMeta.actorName || 'Pengguna')}">${escapeHtml(liveMeta.label || '⚡ Live')}</span></div>`
+        : '';
+
       return `
-        <tr class="${isLateRow}">
+        <tr class="${rowClasses}">
           <td style="color:var(--text-muted); font-weight:600; text-align:center; width:45px;">${rowNo}</td>
           <td style="white-space:nowrap;">
             <strong>${formatTanggalIndo(r.tanggal)}</strong>
+            ${liveBadgeHtml}
           </td>
           <td>
             <div class="employee-cell">
@@ -607,10 +665,10 @@
           </td>
           <td>
             <div class="table-actions">
-              <button class="btn-table-action btn-action-edit" onclick="window.app.openEditModal(${r.id})" title="Edit Jam & Keterangan">
+              <button class="btn-table-action btn-action-edit" onclick="window.app.openEditModal('${escapeHtml(String(r.id))}')" title="Edit Jam & Keterangan">
                 ✏️ Edit
               </button>
-              <button class="btn-table-action btn-action-delete" onclick="window.app.deleteRecord(${r.id})" title="Hapus Data">
+              <button class="btn-table-action btn-action-delete" onclick="window.app.deleteRecord('${escapeHtml(String(r.id))}')" title="Hapus Data">
                 🗑️
               </button>
             </div>
@@ -1069,9 +1127,11 @@
         state.filters.bulan = (period === 'all' ? '' : period);
         state.pagination.currentPage = 1;
         evaluateAndRender();
+        const totalNow = state.absensiList.length.toLocaleString('id-ID');
+        const periodCount = state.absensiList.filter(a => a.tanggal && a.tanggal.startsWith(period)).length.toLocaleString('id-ID');
         showToast(period === 'all' 
-          ? 'Menampilkan semua periode (September & Oktober 2026 - 3.098 data)' 
-          : `Menampilkan data presensi periode ${period === '2026-09' ? 'September 2026 (2.150 data)' : 'Oktober 2026 (948 data)'}`);
+          ? `Menampilkan semua periode (${totalNow} data presensi tersinkron)` 
+          : `Menampilkan data presensi periode ${period === '2026-09' ? 'September 2026' : 'Oktober 2026'} (${periodCount} data)`);
       });
     });
 
@@ -1221,6 +1281,7 @@
     if (elSort) {
       elSort.addEventListener('change', (e) => {
         state.filters.sort = e.target.value;
+        state.liveHighlights.clear(); // Kembalikan ke urutan murni saat pengguna memilih sort eksplisit
         evaluateAndRender();
       });
     }
@@ -1292,6 +1353,13 @@
     if (formEdit) {
       formEdit.addEventListener('submit', handleSaveEditPresensi);
     }
+
+    // Tutup modal aktif dengan tombol Escape (Aksesibilitas Keyboard)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+      }
+    });
   }
 
   function applyPreset(presetName) {
@@ -1347,39 +1415,84 @@
     }
 
     const emp = state.pegawaiList.find(p => p.nip === nip) || {};
+    const existingIdx = state.absensiList.findIndex(r => r.nip === nip && r.tanggal === tanggal);
 
-    const newRecord = {
-      id: Date.now(),
-      tanggal,
-      nip,
-      nama_lengkap: emp.nama_lengkap || 'Pegawai',
-      unit_kerja: emp.unit_kerja || '-',
-      jam_masuk: jamMasuk,
-      jam_pulang: jamPulang,
-      status_kehadiran: status,
-      keterangan
-    };
+    let targetRecord;
+    let subAction = 'INSERT';
 
-    state.absensiList.unshift(newRecord);
-    saveAbsensi();
+    if (existingIdx >= 0) {
+      subAction = 'UPDATE';
+      targetRecord = {
+        ...state.absensiList[existingIdx],
+        nama_lengkap: emp.nama_lengkap || state.absensiList[existingIdx].nama_lengkap || 'Pegawai',
+        unit_kerja: emp.unit_kerja || state.absensiList[existingIdx].unit_kerja || '-',
+        jam_masuk: jamMasuk,
+        jam_pulang: jamPulang,
+        status_kehadiran: status,
+        keterangan
+      };
+      state.absensiList[existingIdx] = targetRecord;
+    } else {
+      targetRecord = {
+        id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+        tanggal,
+        nip,
+        nama_lengkap: emp.nama_lengkap || 'Pegawai',
+        unit_kerja: emp.unit_kerja || '-',
+        jam_masuk: jamMasuk,
+        jam_pulang: jamPulang,
+        status_kehadiran: status,
+        keterangan
+      };
+      state.absensiList.unshift(targetRecord);
+    }
+
+    state.liveHighlights.set(`${nip}|${tanggal}`, {
+      seq: ++state.liveSeqCounter,
+      actorName: 'Anda',
+      label: subAction === 'INSERT' ? '✨ Baru Ditambahkan' : '✨ Baru Diperbarui',
+      timestamp: Date.now()
+    });
+    state.pagination.currentPage = 1;
+
+    saveAbsensi(true);
     populateDateDropdown();
     closeModal('modal-tambah');
     evaluateAndRender();
-    showToast(`Presensi untuk ${emp.nama_lengkap} berhasil ditambahkan!`, 'success');
+    showToast(
+      subAction === 'INSERT'
+        ? `Presensi untuk ${emp.nama_lengkap} (${tanggal}) berhasil ditambahkan & disiarkan live!`
+        : `Presensi ${emp.nama_lengkap} (${tanggal}) berhasil diperbarui & disiarkan live!`,
+      'success'
+    );
+
+    if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
+      window.supabaseSync.updateRecordInCloud(targetRecord, subAction).catch(() => {});
+    }
   }
 
   function openEditModal(recordId) {
-    const rec = state.absensiList.find(r => r.id === recordId);
-    if (!rec) return;
+    const rec = state.absensiList.find(r => String(r.id) === String(recordId));
+    if (!rec) {
+      showToast('Data presensi tidak ditemukan.', 'warning');
+      return;
+    }
 
-    state.editingRecordId = recordId;
+    state.editingRecordId = rec.id;
 
-    document.getElementById('modal-edit-pegawai').value = `${rec.nama_lengkap} (${rec.nip})`;
-    document.getElementById('modal-edit-tanggal').value = rec.tanggal;
-    document.getElementById('modal-edit-masuk').value = rec.jam_masuk || '';
-    document.getElementById('modal-edit-pulang').value = rec.jam_pulang || '';
-    document.getElementById('modal-edit-status').value = rec.status_kehadiran || 'Hadir';
-    document.getElementById('modal-edit-keterangan').value = rec.keterangan || '';
+    const elPegawai = document.getElementById('modal-edit-pegawai');
+    const elTanggal = document.getElementById('modal-edit-tanggal');
+    const elMasuk = document.getElementById('modal-edit-masuk');
+    const elPulang = document.getElementById('modal-edit-pulang');
+    const elStatus = document.getElementById('modal-edit-status');
+    const elKet = document.getElementById('modal-edit-keterangan');
+
+    if (elPegawai) elPegawai.value = `${rec.nama_lengkap} (${rec.nip})`;
+    if (elTanggal) elTanggal.value = rec.tanggal;
+    if (elMasuk) elMasuk.value = rec.jam_masuk || '';
+    if (elPulang) elPulang.value = rec.jam_pulang || '';
+    if (elStatus) elStatus.value = rec.status_kehadiran || 'Hadir';
+    if (elKet) elKet.value = rec.keterangan || '';
 
     openModal('modal-edit');
   }
@@ -1388,40 +1501,79 @@
     e.preventDefault();
     if (!state.editingRecordId) return;
 
-    const rec = state.absensiList.find(r => r.id === state.editingRecordId);
-    if (!rec) return;
+    const rec = state.absensiList.find(r => String(r.id) === String(state.editingRecordId));
+    if (!rec) {
+      showToast('Data presensi tidak ditemukan saat menyimpan perubahan.', 'danger');
+      return;
+    }
 
     rec.jam_masuk = document.getElementById('modal-edit-masuk').value || null;
     rec.jam_pulang = document.getElementById('modal-edit-pulang').value || null;
     rec.status_kehadiran = document.getElementById('modal-edit-status').value || 'Hadir';
     rec.keterangan = document.getElementById('modal-edit-keterangan').value || null;
 
-    saveAbsensi();
+    saveAbsensi(true);
     closeModal('modal-edit');
     evaluateAndRender();
-    showToast(`Perubahan presensi untuk ${rec.nama_lengkap} berhasil disimpan!`, 'success');
-  }
+    showToast(`Perubahan presensi untuk ${rec.nama_lengkap} berhasil disimpan & disinkronkan live!`, 'success');
 
-  function deleteRecord(recordId) {
-    const rec = state.absensiList.find(r => r.id === recordId);
-    if (!rec) return;
-
-    if (confirm(`Apakah Anda yakin ingin menghapus data presensi ${rec.nama_lengkap} tanggal ${rec.tanggal}?`)) {
-      state.absensiList = state.absensiList.filter(r => r.id !== recordId);
-      saveAbsensi();
-      evaluateAndRender();
-      showToast('Data presensi berhasil dihapus.', 'danger');
+    if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
+      window.supabaseSync.updateRecordInCloud(rec, 'UPDATE').catch(() => {});
     }
   }
 
-  function resetToDefault() {
-    if (confirm('Kembalikan seluruh data presensi ke database resmi FHISIP UT (3.098 data scan September & Oktober)? Seluruh perubahan manual akan di-reset.')) {
-      localStorage.removeItem(STORAGE_KEY_ABSENSI);
-      localStorage.removeItem(STORAGE_KEY_CONFIG);
-      loadConfig();
-      loadData();
+  function deleteRecord(recordId) {
+    const rec = state.absensiList.find(r => String(r.id) === String(recordId));
+    if (!rec) {
+      showToast('Data presensi tidak ditemukan.', 'warning');
+      return;
+    }
+
+    if (confirm(`Apakah Anda yakin ingin menghapus data presensi ${rec.nama_lengkap} tanggal ${rec.tanggal}?`)) {
+      state.absensiList = state.absensiList.filter(r => String(r.id) !== String(recordId));
+      state.liveHighlights.delete(`${rec.nip}|${rec.tanggal}`);
+      saveAbsensi(true);
+      populateDateDropdown();
+
+      // Penyesuaian pagination jika data terakhir di halaman terhapus
+      const currentFiltered = state.lastFilteredRecords || [];
+      const newFilteredTotal = Math.max(0, currentFiltered.length - 1);
+      const totalPages = Math.ceil(newFilteredTotal / state.pagination.pageSize) || 1;
+      if (state.pagination.currentPage > totalPages) {
+        state.pagination.currentPage = totalPages;
+      }
+
       evaluateAndRender();
-      showToast('Data dan konfigurasi berhasil disinkronkan ke database master FHISIP UT (3.098 data).', 'success');
+      showToast(`Data presensi ${rec.nama_lengkap} (${rec.tanggal}) berhasil dihapus di semua perangkat.`, 'danger');
+
+      if (window.supabaseSync && typeof window.supabaseSync.deleteRecordFromCloud === 'function') {
+        window.supabaseSync.deleteRecordFromCloud(rec.nip, rec.tanggal, rec.nama_lengkap).catch(() => {});
+      }
+    }
+  }
+
+  async function resetToDefault() {
+    if (confirm('Kembalikan seluruh data presensi ke database resmi FHISIP UT (September & Oktober)? Perubahan ini juga akan mereset data di Cloud agar semua perangkat selaras.')) {
+      const initial = window.INITIAL_FHISIP_DATA || { pegawai: [], absensi: [] };
+      state.liveHighlights.clear();
+      if (window.StorageManager) {
+        state.absensiList = await window.StorageManager.resetToDefault(initial.absensi, DEFAULT_CONFIG);
+      } else {
+        localStorage.removeItem(STORAGE_KEY_ABSENSI);
+        localStorage.removeItem(STORAGE_KEY_CONFIG);
+        state.absensiList = initial.absensi ? [...initial.absensi] : [];
+      }
+      loadConfig();
+      populateDateDropdown();
+      evaluateAndRender();
+      showToast('Data dan konfigurasi berhasil dikembalikan ke database master FHISIP UT.', 'success');
+
+      if (window.supabaseSync && typeof window.supabaseSync.replaceAllInCloud === 'function') {
+        window.supabaseSync.replaceAllInCloud(state.absensiList, { isReset: true }).catch(() => {});
+        if (typeof window.supabaseSync.syncConfigToCloud === 'function') {
+          window.supabaseSync.syncConfigToCloud(DEFAULT_CONFIG).catch(() => {});
+        }
+      }
     }
   }
 
@@ -1602,6 +1754,202 @@
     return rows;
   }
 
+  // ==========================================================================
+  // LIVE MULTI-DEVICE & MULTI-TAB SYNCHRONIZATION HANDLERS
+  // ==========================================================================
+  function computeDatasetSignature(records) {
+    if (!Array.isArray(records) || records.length === 0) return 'empty:0';
+    const first = records[0];
+    const mid = records[Math.floor(records.length / 2)];
+    const last = records[records.length - 1];
+    return [
+      records.length,
+      `${first.nip}|${first.tanggal}|${first.jam_masuk}|${first.jam_pulang}|${first.status_kehadiran}`,
+      `${mid.nip}|${mid.tanggal}|${mid.jam_masuk}|${mid.jam_pulang}|${mid.status_kehadiran}`,
+      `${last.nip}|${last.tanggal}|${last.jam_masuk}|${last.jam_pulang}|${last.status_kehadiran}`
+    ].join('::');
+  }
+
+  function mergePegawaiList(remotePegawai) {
+    if (!Array.isArray(remotePegawai) || remotePegawai.length === 0) return;
+    const existingMap = new Map(state.pegawaiList.map(p => [String(p.nip).trim(), p]));
+    let addedCount = 0;
+
+    remotePegawai.forEach(rp => {
+      if (!rp || !rp.nip) return;
+      const nip = String(rp.nip).trim();
+      if (!existingMap.has(nip)) {
+        state.pegawaiList.push(rp);
+        existingMap.set(nip, rp);
+        addedCount++;
+      }
+    });
+
+    if (addedCount > 0) {
+      populateUnitDropdown();
+      populatePegawaiSelect();
+    }
+  }
+
+  function applyRemoteRecordUpsert(record, actor = {}, subAction = 'UPDATE') {
+    if (!record || !record.nip || !record.tanggal) return 'ignored';
+
+    // Pastikan pegawai baru ikut masuk daftar pegawai lokal
+    if (!state.pegawaiList.some(p => p.nip === record.nip)) {
+      mergePegawaiList([{
+        nip: record.nip,
+        nama_lengkap: record.nama_lengkap || ('Pegawai ' + record.nip),
+        status_kepegawaian: 'PNS',
+        unit_kerja: record.unit_kerja || 'FHISIP'
+      }]);
+    }
+
+    const emp = state.pegawaiList.find(p => p.nip === record.nip) || {};
+    const enriched = {
+      ...record,
+      nama_lengkap: record.nama_lengkap || emp.nama_lengkap || 'Pegawai',
+      unit_kerja: record.unit_kerja || emp.unit_kerja || 'FHISIP'
+    };
+
+    const existingIdx = state.absensiList.findIndex(
+      r => (r.nip === enriched.nip && r.tanggal === enriched.tanggal) ||
+           (record.id && String(r.id) === String(record.id))
+    );
+
+    let outcome = 'updated';
+    if (existingIdx >= 0) {
+      state.absensiList[existingIdx] = {
+        ...state.absensiList[existingIdx],
+        ...enriched
+      };
+    } else {
+      state.absensiList.unshift(enriched);
+      outcome = 'inserted';
+    }
+
+    const actorName = actor && actor.name ? actor.name : 'Pengguna Lain';
+    state.liveHighlights.set(`${enriched.nip}|${enriched.tanggal}`, {
+      seq: ++state.liveSeqCounter,
+      actorName,
+      label: outcome === 'inserted' ? `⚡ Live Baru (${actorName.split(' ')[0]})` : `⚡ Diperbarui (${actorName.split(' ')[0]})`,
+      timestamp: Date.now()
+    });
+
+    saveAbsensi(true, { skipServerPush: true, silentBadge: true });
+    populateDateDropdown();
+    evaluateAndRender();
+
+    const actionWord = (outcome === 'inserted' || subAction === 'INSERT') ? 'menambahkan' : 'memperbarui';
+    showToast(
+      `⚡ Live Update: ${actorName} ${actionWord} presensi ${enriched.nama_lengkap} (${formatTanggalIndo(enriched.tanggal)})`,
+      'success'
+    );
+    return outcome;
+  }
+
+  function applyRemoteRecordDelete(nip, tanggal, namaLengkap = '', actor = {}) {
+    if (!nip || !tanggal) return;
+    const prevLen = state.absensiList.length;
+    const found = state.absensiList.find(r => r.nip === nip && r.tanggal === tanggal);
+    state.absensiList = state.absensiList.filter(r => !(r.nip === nip && r.tanggal === tanggal));
+    state.liveHighlights.delete(`${nip}|${tanggal}`);
+
+    if (state.absensiList.length !== prevLen) {
+      saveAbsensi(true, { skipServerPush: true, silentBadge: true });
+      populateDateDropdown();
+      evaluateAndRender();
+
+      const actorName = actor && actor.name ? actor.name : 'Pengguna Lain';
+      const displayNama = namaLengkap || (found && found.nama_lengkap) || nip;
+      showToast(`⚡ Live Update: ${actorName} menghapus presensi ${displayNama} (${formatTanggalIndo(tanggal)})`, 'warning');
+    }
+  }
+
+  function applyRemoteDataset(records, actor = null, toastMessage = null, opts = {}) {
+    if (!Array.isArray(records)) return;
+
+    const currentSig = computeDatasetSignature(state.absensiList);
+    const nextSig = computeDatasetSignature(records);
+
+    if (currentSig === nextSig && state.absensiList.length === records.length) {
+      return; // Data sudah identik, hemat re-render DOM
+    }
+
+    state.absensiList = records;
+    saveAbsensi(true, { skipServerPush: true, silentBadge: true });
+    populateDateDropdown();
+    evaluateAndRender();
+
+    if (!opts.silent && toastMessage) {
+      showToast(toastMessage, 'info');
+    }
+  }
+
+  function applyRemoteConfigUpdate(newCfg, actor = null, opts = {}) {
+    if (!newCfg) return;
+    const changed =
+      (newCfg.jamMasuk && newCfg.jamMasuk !== state.config.jamMasuk) ||
+      (newCfg.toleransi !== undefined && Number(newCfg.toleransi) !== Number(state.config.toleransi)) ||
+      (newCfg.jamPulang && newCfg.jamPulang !== state.config.jamPulang) ||
+      (newCfg.jamPulangJumat && newCfg.jamPulangJumat !== state.config.jamPulangJumat);
+
+    if (!changed) return;
+
+    state.config = {
+      ...state.config,
+      jamMasuk: newCfg.jamMasuk || state.config.jamMasuk,
+      toleransi: newCfg.toleransi !== undefined ? Number(newCfg.toleransi) : state.config.toleransi,
+      jamPulang: newCfg.jamPulang || state.config.jamPulang,
+      jamPulangJumat: newCfg.jamPulangJumat || state.config.jamPulangJumat,
+      preset: newCfg.preset || 'custom'
+    };
+
+    saveConfig({ skipCloud: true });
+    syncConfigUI();
+    evaluateAndRender();
+
+    if (!opts.silent) {
+      const actorName = actor && actor.name ? actor.name : 'Administrator';
+      showToast(`⚡ Live Kebijakan: ${actorName} memperbarui batas jam kerja (${state.config.jamMasuk} - ${state.config.jamPulang})`, 'info');
+    }
+  }
+
+  function initMultiTabSync() {
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const channel = new BroadcastChannel('ut_fhisip_sync_channel');
+        channel.onmessage = (event) => {
+          if (!event.data) return;
+          if (window.StorageManager && event.data.clientId && event.data.clientId === window.StorageManager.CLIENT_ID) {
+            return;
+          }
+
+          if (event.data.type === 'DATA_UPDATED' || event.data.type === 'DATA_RESET') {
+            const syncRecords = window.StorageManager && window.StorageManager.KEYS
+              ? localStorage.getItem(window.StorageManager.KEYS.ABSENSI)
+              : null;
+            if (syncRecords) {
+              try {
+                const parsed = JSON.parse(syncRecords);
+                if (Array.isArray(parsed)) {
+                  const sigBefore = computeDatasetSignature(state.absensiList);
+                  const sigAfter = computeDatasetSignature(parsed);
+                  if (sigBefore !== sigAfter) {
+                    state.absensiList = parsed;
+                    populateDateDropdown();
+                    evaluateAndRender();
+                  }
+                }
+              } catch (_) {}
+            }
+          } else if (event.data.type === 'CONFIG_UPDATED' && event.data.config) {
+            applyRemoteConfigUpdate(event.data.config, null, { silent: true });
+          }
+        };
+      } catch (e) {}
+    }
+  }
+
   // --- EXPOSE TO GLOBAL WINDOW ---
   window.app = {
     init,
@@ -1618,9 +1966,14 @@
     getAbsensiList: () => state.absensiList,
     setAbsensiList: (list) => {
       state.absensiList = list;
-      saveAbsensi();
+      saveAbsensi(true);
       populateDateDropdown();
     },
+    mergePegawaiList,
+    applyRemoteRecordUpsert,
+    applyRemoteRecordDelete,
+    applyRemoteDataset,
+    applyRemoteConfigUpdate,
     getConfig: () => ({ ...state.config }),
     getEvaluatedRecords: () => state.absensiList.map(evaluateRecord),
     getFilteredRecords: () => state.lastFilteredRecords || [],
