@@ -631,10 +631,29 @@
   // ==========================================================================
   // OPERASI TULIS KE CLOUD + BROADCAST REALTIME KE DEVICE LAIN
   // ==========================================================================
+  function normalizeRecordForCloud(a) {
+    if (window.app && typeof window.app.normalizeAttendanceRecord === 'function') {
+      return window.app.normalizeAttendanceRecord(a);
+    }
+    const parts = String(a.tanggal || '').slice(0, 10).split('-').map(Number);
+    const dow = parts.length === 3 && !parts.some(isNaN) ? new Date(parts[0], parts[1] - 1, parts[2]).getDay() : null;
+    const isWk = dow === 0 || dow === 6;
+    let status = a.status_kehadiran || 'Hadir';
+    if (isWk && status === 'Hadir') status = 'Lembur';
+    const nonTimed = isWk || status !== 'Hadir';
+    return {
+      ...a,
+      status_kehadiran: status,
+      jam_masuk: nonTimed ? null : (a.jam_masuk || null),
+      jam_pulang: nonTimed ? null : (a.jam_pulang || null)
+    };
+  }
+
   function deduplicateRecordsForCloud(records) {
     const cleanMap = new Map();
-    records.forEach(a => {
-      if (!a || !a.nip || !a.tanggal) return;
+    records.forEach(raw => {
+      if (!raw || !raw.nip || !raw.tanggal) return;
+      const a = normalizeRecordForCloud(raw);
       const k = `${a.nip}|${a.tanggal}`;
       if (!cleanMap.has(k)) {
         cleanMap.set(k, {
@@ -647,8 +666,15 @@
         });
       } else {
         const existing = cleanMap.get(k);
-        if (a.jam_masuk && (!existing.jam_masuk || a.jam_masuk < existing.jam_masuk)) existing.jam_masuk = a.jam_masuk;
-        if (a.jam_pulang && (!existing.jam_pulang || a.jam_pulang > existing.jam_pulang)) existing.jam_pulang = a.jam_pulang;
+        const nonTimed = a.status_kehadiran !== 'Hadir' || existing.status_kehadiran !== 'Hadir';
+        if (nonTimed) {
+          if (a.status_kehadiran !== 'Hadir') existing.status_kehadiran = a.status_kehadiran;
+          existing.jam_masuk = null;
+          existing.jam_pulang = null;
+        } else {
+          if (a.jam_masuk && (!existing.jam_masuk || a.jam_masuk < existing.jam_masuk)) existing.jam_masuk = a.jam_masuk;
+          if (a.jam_pulang && (!existing.jam_pulang || a.jam_pulang > existing.jam_pulang)) existing.jam_pulang = a.jam_pulang;
+        }
         if (a.keterangan && !existing.keterangan) existing.keterangan = a.keterangan;
       }
     });
@@ -770,15 +796,16 @@
     if (!client) return false;
 
     try {
-      await ensurePegawaiInCloud([rec]);
+      const cleanRec = normalizeRecordForCloud(rec);
+      await ensurePegawaiInCloud([cleanRec]);
 
       const payload = {
-        nip: rec.nip,
-        tanggal: rec.tanggal,
-        jam_masuk: rec.jam_masuk || null,
-        jam_pulang: rec.jam_pulang || null,
-        status_kehadiran: rec.status_kehadiran || 'Hadir',
-        keterangan: rec.keterangan || null
+        nip: cleanRec.nip,
+        tanggal: cleanRec.tanggal,
+        jam_masuk: cleanRec.jam_masuk || null,
+        jam_pulang: cleanRec.jam_pulang || null,
+        status_kehadiran: cleanRec.status_kehadiran || 'Hadir',
+        keterangan: cleanRec.keterangan || null
       };
 
       const { data, error } = await client
@@ -788,8 +815,8 @@
 
       if (error) throw error;
 
-      const savedId = Array.isArray(data) && data[0] && data[0].id ? data[0].id : rec.id;
-      const syncedRecord = { ...rec, id: savedId };
+      const savedId = Array.isArray(data) && data[0] && data[0].id ? data[0].id : cleanRec.id;
+      const syncedRecord = { ...cleanRec, id: savedId };
 
       if (typeof savedId === 'number') {
         if (!lastKnownLatestId || savedId > lastKnownLatestId) {

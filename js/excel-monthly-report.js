@@ -125,15 +125,26 @@
       });
     }
 
-    // Hitung scan dan ketidakhadiran
+    // Hitung scan, lembur akhir pekan, dan ketidakhadiran
     for (const r of monthRecords) {
       if (!empMap.has(r.nip)) continue;
       const agg = empMap.get(r.nip);
 
-      const masukMin = parseMinutes(r.jam_masuk);
-      const pulangMin = parseMinutes(r.jam_pulang);
+      const parts = String(r.tanggal || '').slice(0, 10).split('-').map(Number);
+      const dow = parts.length === 3 && !parts.some(isNaN)
+        ? new Date(parts[0], parts[1] - 1, parts[2]).getDay()
+        : null;
+      const isWeekend = dow === 0 || dow === 6;
+      const effStatus = (isWeekend && (!r.status_kehadiran || r.status_kehadiran === 'Hadir'))
+        ? 'Lembur'
+        : (r.status_kehadiran || 'Hadir');
 
-      if (r.status_kehadiran === 'Hadir') {
+      if (effStatus === 'Lembur') {
+        agg.lembur++;
+      } else if (effStatus === 'Hadir') {
+        const masukMin = parseMinutes(r.jam_masuk);
+        const pulangMin = parseMinutes(r.jam_pulang);
+
         agg.riilDays++;
         if (r.jam_masuk) agg.scanCount++;
         if (r.jam_pulang) agg.scanCount++;
@@ -146,26 +157,29 @@
         if (r.keterangan && r.keterangan.includes('WFH')) {
           agg.notes.push('WFH');
         }
-      } else if (r.status_kehadiran === 'Cuti') {
+      } else if (effStatus === 'Cuti') {
         agg.cuti++;
         agg.absenDays++;
         if (r.keterangan) agg.notes.push(r.keterangan);
-      } else if (r.status_kehadiran === 'Sakit') {
+      } else if (effStatus === 'Sakit') {
         agg.sakit++;
         agg.absenDays++;
         if (r.keterangan) agg.notes.push(r.keterangan);
-      } else if (r.status_kehadiran === 'Izin') {
+      } else if (effStatus === 'Izin') {
         agg.izin++;
         agg.absenDays++;
         if (r.keterangan) agg.notes.push(r.keterangan);
-      } else if (r.status_kehadiran === 'Dinas Luar') {
+      } else if (effStatus === 'Dinas Luar' || effStatus === 'Tugas Belajar') {
         agg.dinasLuar++;
+        agg.absenDays++;
+      } else if (effStatus === 'Alpha') {
+        agg.tanpaKeterangan++;
         agg.absenDays++;
       }
     }
 
     // Ambil pegawai aktif di bulan ini (atau jika tidak ada presensi, tampilkan master)
-    let activeEmps = Array.from(empMap.values()).filter(e => e.riilDays > 0 || e.absenDays > 0);
+    let activeEmps = Array.from(empMap.values()).filter(e => e.riilDays > 0 || e.absenDays > 0 || e.lembur > 0);
     if (activeEmps.length === 0) {
       activeEmps = Array.from(empMap.values());
     }
@@ -287,6 +301,16 @@
         if (emp.pulangCepat > 0) {
           setCell(`P${r}`, emp.pulangCepat, 'n');
           merges.push({ s: { r: r - 1, c: 15 }, e: { r: r - 1, c: 16 } }); // P:Q
+        }
+
+        // Lembur (Sabtu / Minggu)
+        if (emp.lembur > 0) {
+          setCell(`R${r}`, emp.lembur, 'n');
+        }
+
+        // Tanpa Keterangan (Alpha)
+        if (emp.tanpaKeterangan > 0) {
+          setCell(`S${r}`, emp.tanpaKeterangan, 'n');
         }
 
         // Dinas Luar

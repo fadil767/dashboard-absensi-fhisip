@@ -43,9 +43,95 @@
     },
     lastFilteredRecords: [],
     editingRecordId: null,
+    autoSetLemburTambah: false,
     liveHighlights: new Map(), // key: nip|tanggal -> { seq, actorName, label, timestamp }
     liveSeqCounter: 0
   };
+
+  // Status kehadiran yang TIDAK menggunakan jam masuk & jam pulang
+  const NON_TIMED_STATUS_SET = new Set([
+    'Lembur',
+    'Izin',
+    'Cuti',
+    'Sakit',
+    'Dinas Luar',
+    'Tugas Belajar',
+    'Alpha'
+  ]);
+
+  const IZIN_CUTI_SAKIT_DINAS_SET = new Set([
+    'Izin',
+    'Cuti',
+    'Sakit',
+    'Dinas Luar',
+    'Tugas Belajar'
+  ]);
+
+  function getDayOfWeek(ymd) {
+    if (!ymd || typeof ymd !== 'string') return null;
+    const parts = ymd.trim().slice(0, 10).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const d = new Date(parts[0], parts[1] - 1, parts[2]);
+    return isNaN(d.getTime()) ? null : d.getDay(); // 0 = Minggu, 6 = Sabtu
+  }
+
+  function isWeekendDate(ymd) {
+    const dow = getDayOfWeek(ymd);
+    return dow === 0 || dow === 6;
+  }
+
+  function getWeekendDayName(ymd) {
+    const dow = getDayOfWeek(ymd);
+    if (dow === 6) return 'Sabtu';
+    if (dow === 0) return 'Minggu';
+    return '';
+  }
+
+  function normalizeStatusValue(rawStatus) {
+    const s = String(rawStatus || '').trim();
+    if (!s) return 'Hadir';
+    const low = s.toLowerCase();
+    if (low === 'hadir' || low === 'present') return 'Hadir';
+    if (low === 'lembur' || low === 'overtime' || low === 'lbr') return 'Lembur';
+    if (low === 'izin' || low === 'ijin' || low.startsWith('izin ')) return 'Izin';
+    if (low === 'cuti' || low.startsWith('cuti ')) return 'Cuti';
+    if (low === 'sakit' || low === 'skt') return 'Sakit';
+    if (low === 'dinas' || low === 'dinas luar' || low === 'dl' || low === 'tugas luar' || low.startsWith('dinas ')) return 'Dinas Luar';
+    if (low === 'tugas belajar' || low === 'tb') return 'Tugas Belajar';
+    if (low === 'alpha' || low === 'alpa' || low === 'tk' || low === 'tanpa keterangan') return 'Alpha';
+    return s;
+  }
+
+  function isNonTimedStatus(status) {
+    return NON_TIMED_STATUS_SET.has(normalizeStatusValue(status));
+  }
+
+  /**
+   * Menormalisasi aturan hari Sabtu-Minggu = Lembur (tanpa jam)
+   * serta Izin, Cuti, Sakit, Dinas Luar, Lembur, Alpha = tanpa jam.
+   */
+  function normalizeAttendanceRecord(rec) {
+    if (!rec || typeof rec !== 'object') return rec;
+    const weekend = isWeekendDate(rec.tanggal);
+    let status = normalizeStatusValue(rec.status_kehadiran);
+    let keterangan = rec.keterangan || null;
+
+    if (weekend && status === 'Hadir') {
+      status = 'Lembur';
+      if (!keterangan || keterangan === 'Mesin Biometrik' || keterangan === 'Import Rekap Mesin Presensi') {
+        keterangan = `Lembur Akhir Pekan (${getWeekendDayName(rec.tanggal)})`;
+      }
+    }
+
+    const nonTimed = weekend || isNonTimedStatus(status);
+    return {
+      ...rec,
+      status_kehadiran: status,
+      jam_masuk: nonTimed ? null : (rec.jam_masuk || null),
+      jam_pulang: nonTimed ? null : (rec.jam_pulang || null),
+      keterangan
+    };
+  }
 
   // ==========================================================================
   // INITIALIZATION & DATA LOADING
@@ -57,11 +143,13 @@
     evaluateAndRender();
     initMultiTabSync();
 
-    // Set default tanggal tambah ke hari ini agar praktis saat input harian
+    // Set default tanggal tambah ke hari ini (waktu lokal) & sinkronkan status Sabtu-Minggu/Tanpa Jam
     const elTambahTanggal = document.getElementById('modal-tambah-tanggal');
     if (elTambahTanggal) {
-      const todayIso = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       elTambahTanggal.value = todayIso;
+      syncModalTimeFields('tambah', 'date');
     }
 
     // Aktifkan Live Multi-Device Sync (Supabase Cloud Realtime)
@@ -118,7 +206,7 @@
     });
 
     // Update summary rule in header & footer
-    const ruleSummary = `Batas Masuk: <strong>${state.config.jamMasuk} WIB</strong> ${state.config.toleransi > 0 ? `(+${state.config.toleransi}m toleransi)` : ''} | Batas Pulang: <strong>${state.config.jamPulang} WIB</strong> (Jumat: ${state.config.jamPulangJumat})`;
+    const ruleSummary = `Batas Masuk: <strong>${state.config.jamMasuk} WIB</strong> ${state.config.toleransi > 0 ? `(+${state.config.toleransi}m toleransi)` : ''} | Batas Pulang: <strong>${state.config.jamPulang} WIB</strong> (Jumat: ${state.config.jamPulangJumat}) | Sabtu–Minggu: <strong>Lembur (Tanpa Jam)</strong>`;
     const elHeaderPill = document.getElementById('header-policy-rule');
     if (elHeaderPill) elHeaderPill.innerHTML = ruleSummary;
 
@@ -141,11 +229,11 @@
 
       // Jika pengguna sudah memiliki data tersimpan (termasuk jika berkurang akibat hapus data)
       if (parsed && Array.isArray(parsed) && (meta.isInitialized || parsed.length > 0)) {
-        state.absensiList = parsed;
+        state.absensiList = parsed.map(normalizeAttendanceRecord);
         console.log(`[App] Memuat ${parsed.length} data presensi dari penyimpanan lokal stabil.`);
       } else {
         // Kunjungan pertama (fresh baseline)
-        state.absensiList = initial.absensi ? [...initial.absensi] : [];
+        state.absensiList = (initial.absensi ? [...initial.absensi] : []).map(normalizeAttendanceRecord);
         window.StorageManager.saveAbsensi(state.absensiList, { isUserModified: false });
       }
 
@@ -153,7 +241,7 @@
       window.StorageManager.loadAbsensiInitial(initial.absensi).then(records => {
         if (records && Array.isArray(records)) {
           if (records.length !== state.absensiList.length) {
-            state.absensiList = records;
+            state.absensiList = records.map(normalizeAttendanceRecord);
             populateDateDropdown();
             evaluateAndRender();
           }
@@ -167,12 +255,13 @@
         const savedAbsensi = localStorage.getItem(STORAGE_KEY_ABSENSI);
         if (savedAbsensi) {
           const parsed = JSON.parse(savedAbsensi);
-          state.absensiList = Array.isArray(parsed) ? parsed : (initial.absensi ? [...initial.absensi] : []);
+          const rawList = Array.isArray(parsed) ? parsed : (initial.absensi ? [...initial.absensi] : []);
+          state.absensiList = rawList.map(normalizeAttendanceRecord);
         } else {
-          state.absensiList = initial.absensi ? [...initial.absensi] : [];
+          state.absensiList = (initial.absensi ? [...initial.absensi] : []).map(normalizeAttendanceRecord);
         }
       } catch (e) {
-        state.absensiList = initial.absensi ? [...initial.absensi] : [];
+        state.absensiList = (initial.absensi ? [...initial.absensi] : []).map(normalizeAttendanceRecord);
       }
     }
 
@@ -261,18 +350,31 @@
 
   /**
    * Mengevaluasi catatan presensi berdasarkan ambang batas waktu yang aktif saat ini.
+   * Aturan khusus:
+   * - Hari Sabtu & Minggu otomatis berstatus Lembur (tanpa jam masuk/pulang).
+   * - Status Lembur, Izin, Cuti, Sakit, Dinas Luar, Tugas Belajar, Alpha tidak memiliki jam masuk/pulang.
    */
   function evaluateRecord(record) {
     const configMasukMin = parseTimeToMinutes(state.config.jamMasuk);
     const toleransiMin = Number(state.config.toleransi) || 0;
     const batasMasukEfektif = configMasukMin + toleransiMin;
 
-    // Tentukan batas pulang (perhatikan hari Jumat jika ada)
-    const isFriday = record.tanggal ? new Date(record.tanggal).getDay() === 5 : false;
+    const dow = getDayOfWeek(record.tanggal);
+    const isFriday = dow === 5;
+    const isWeekend = dow === 0 || dow === 6;
     const configPulangMin = parseTimeToMinutes(isFriday ? state.config.jamPulangJumat : state.config.jamPulang);
 
-    const recordMasukMin = parseTimeToMinutes(record.jam_masuk);
-    const recordPulangMin = parseTimeToMinutes(record.jam_pulang);
+    let effectiveStatus = normalizeStatusValue(record.status_kehadiran);
+    if (isWeekend && effectiveStatus === 'Hadir') {
+      effectiveStatus = 'Lembur';
+    }
+
+    const isNonTimed = isWeekend || isNonTimedStatus(effectiveStatus);
+    const effectiveMasuk = isNonTimed ? null : (record.jam_masuk || null);
+    const effectivePulang = isNonTimed ? null : (record.jam_pulang || null);
+
+    const recordMasukMin = parseTimeToMinutes(effectiveMasuk);
+    const recordPulangMin = parseTimeToMinutes(effectivePulang);
 
     let isTerlambat = false;
     let menitTerlambat = 0;
@@ -281,11 +383,12 @@
     let isTanpaPulang = false;
     let isTanpaMasuk = false;
 
-    // Evaluasi jam masuk & kepulangan
-    if (record.status_kehadiran && record.status_kehadiran !== 'Hadir') {
-      // Dispensasi resmi (Dinas Luar, Izin, Cuti, Sakit dsb)
+    // Evaluasi jam masuk & kepulangan hanya untuk Hadir pada hari kerja (Senin - Jumat)
+    if (isNonTimed) {
       isTerlambat = false;
       isPulangCepat = false;
+      isTanpaMasuk = false;
+      isTanpaPulang = false;
     } else {
       // Evaluasi jam masuk
       if (recordMasukMin !== null && configMasukMin !== null) {
@@ -308,19 +411,36 @@
       }
     }
 
-    const isAnomali = isTerlambat || isPulangCepat || isTanpaPulang || isTanpaMasuk || (record.status_kehadiran === 'Alpha');
+    const isLembur = effectiveStatus === 'Lembur';
+    const isIzinCutiSakitDinas = IZIN_CUTI_SAKIT_DINAS_SET.has(effectiveStatus);
+    const isAnomali = isTerlambat || isPulangCepat || isTanpaPulang || isTanpaMasuk || (effectiveStatus === 'Alpha');
 
-    // Label Status
+    // Label Status & Badge
     let statusLabel = 'Tepat Waktu';
     let statusBadgeClass = 'badge-tepat';
 
-    if (record.status_kehadiran && record.status_kehadiran !== 'Hadir') {
-      statusLabel = record.status_kehadiran;
-      if (['Izin', 'Cuti', 'Dinas Luar', 'Tugas Belajar'].includes(record.status_kehadiran)) {
-        statusBadgeClass = 'badge-izin';
-      } else {
-        statusBadgeClass = 'badge-alpha';
-      }
+    if (effectiveStatus === 'Lembur') {
+      const wkDay = getWeekendDayName(record.tanggal);
+      statusLabel = wkDay ? `Lembur (${wkDay})` : 'Lembur';
+      statusBadgeClass = 'badge-lembur';
+    } else if (effectiveStatus === 'Izin') {
+      statusLabel = 'Izin';
+      statusBadgeClass = 'badge-izin';
+    } else if (effectiveStatus === 'Cuti') {
+      statusLabel = 'Cuti';
+      statusBadgeClass = 'badge-cuti';
+    } else if (effectiveStatus === 'Sakit') {
+      statusLabel = 'Sakit';
+      statusBadgeClass = 'badge-sakit';
+    } else if (effectiveStatus === 'Dinas Luar') {
+      statusLabel = 'Dinas Luar';
+      statusBadgeClass = 'badge-dinas';
+    } else if (effectiveStatus === 'Tugas Belajar') {
+      statusLabel = 'Tugas Belajar';
+      statusBadgeClass = 'badge-dinas';
+    } else if (effectiveStatus !== 'Hadir') {
+      statusLabel = effectiveStatus;
+      statusBadgeClass = 'badge-alpha';
     } else {
       if (isTerlambat && isPulangCepat) {
         statusLabel = 'Telat & Pulang Cepat';
@@ -337,6 +457,9 @@
       } else if (isTanpaMasuk && !isTanpaPulang) {
         statusLabel = 'Tanpa Scan Masuk';
         statusBadgeClass = 'badge-warning';
+      } else if (isTanpaMasuk && isTanpaPulang) {
+        statusLabel = 'Tanpa Scan';
+        statusBadgeClass = 'badge-warning';
       } else {
         statusLabel = 'Tepat Waktu';
         statusBadgeClass = 'badge-tepat';
@@ -345,6 +468,13 @@
 
     return {
       ...record,
+      jam_masuk: effectiveMasuk,
+      jam_pulang: effectivePulang,
+      status_kehadiran: effectiveStatus,
+      isWeekend,
+      isNonTimed,
+      isLembur,
+      isIzinCutiSakitDinas,
       isTerlambat,
       menitTerlambat,
       isPulangCepat,
@@ -396,18 +526,21 @@
     let telatCount = 0;
     let pulangCepatCount = 0;
     let totalMenitTelat = 0;
+    let lemburCount = 0;
     let izinCount = 0;
     let tanpaPulangCount = 0;
     let anomaliCount = 0;
 
     records.forEach(r => {
-      if (r.status_kehadiran && r.status_kehadiran !== 'Hadir') {
+      if (r.isLembur) {
+        lemburCount++;
+      } else if (r.isIzinCutiSakitDinas) {
         izinCount++;
-      } else {
+      } else if (r.status_kehadiran === 'Hadir') {
         if (r.isTerlambat) {
           telatCount++;
           totalMenitTelat += r.menitTerlambat;
-        } else {
+        } else if (!r.isTanpaMasuk) {
           tepatCount++;
         }
 
@@ -452,6 +585,7 @@
     setText('count-status-pulang-cepat', pulangCepatCount.toLocaleString('id-ID'));
     setText('count-status-tanpa-pulang', tanpaPulangCount.toLocaleString('id-ID'));
     setText('count-status-anomali', anomaliCount.toLocaleString('id-ID'));
+    setText('count-status-lembur', lemburCount.toLocaleString('id-ID'));
     setText('count-status-izin', izinCount.toLocaleString('id-ID'));
   }
 
@@ -519,15 +653,17 @@
       if (state.filters.status === 'telat') {
         if (!r.isTerlambat) return false;
       } else if (state.filters.status === 'tepat') {
-        if (r.isTerlambat || (r.status_kehadiran && r.status_kehadiran !== 'Hadir')) return false;
+        if (r.isTerlambat || r.status_kehadiran !== 'Hadir' || r.isTanpaMasuk) return false;
       } else if (state.filters.status === 'pulang_cepat') {
         if (!r.isPulangCepat) return false;
       } else if (state.filters.status === 'tanpa_pulang') {
         if (!r.isTanpaPulang) return false;
       } else if (state.filters.status === 'anomali') {
         if (!r.isAnomali) return false;
+      } else if (state.filters.status === 'lembur') {
+        if (!r.isLembur) return false;
       } else if (state.filters.status === 'izin') {
-        if (r.status_kehadiran === 'Hadir') return false;
+        if (!r.isIzinCutiSakitDinas) return false;
       }
 
       return true;
@@ -549,11 +685,20 @@
         case 'telat_asc':
           return a.menitTerlambat - b.menitTerlambat;
         case 'masuk_asc':
-          return (a.jam_masuk || '99:99').localeCompare(b.jam_masuk || '99:99');
+          if (!a.jam_masuk && !b.jam_masuk) return 0;
+          if (!a.jam_masuk) return 1;
+          if (!b.jam_masuk) return -1;
+          return a.jam_masuk.localeCompare(b.jam_masuk);
         case 'masuk_desc':
-          return (b.jam_masuk || '00:00').localeCompare(a.jam_masuk || '00:00');
+          if (!a.jam_masuk && !b.jam_masuk) return 0;
+          if (!a.jam_masuk) return 1;
+          if (!b.jam_masuk) return -1;
+          return b.jam_masuk.localeCompare(a.jam_masuk);
         case 'pulang_asc':
-          return (a.jam_pulang || '99:99').localeCompare(b.jam_pulang || '99:99');
+          if (!a.jam_pulang && !b.jam_pulang) return 0;
+          if (!a.jam_pulang) return 1;
+          if (!b.jam_pulang) return -1;
+          return a.jam_pulang.localeCompare(b.jam_pulang);
         case 'tanggal_desc':
           return (b.tanggal || '').localeCompare(a.tanggal || '');
         case 'tanggal_asc':
@@ -616,31 +761,52 @@
       const emp = state.pegawaiList.find(p => p.nip === r.nip) || {};
       const statusPns = emp.status_kepegawaian || 'Pegawai';
 
-      // Jam Masuk Pill
-      let masukPill = `<span class="time-pill">${r.jam_masuk || '-'}</span>`;
-      if (r.isTerlambat) {
-        masukPill = `<span class="time-pill time-danger">${r.jam_masuk} (+${r.menitTerlambat}m)</span>`;
-      } else if (!r.jam_masuk && r.status_kehadiran === 'Hadir') {
-        masukPill = `<span class="time-pill time-warning" title="Belum / tidak ada scan masuk">Kosong ⚠️</span>`;
+      // Jam Masuk & Jam Pulang Pill (Kosong / Tanpa Jam untuk Sabtu-Minggu Lembur & Izin/Cuti/Sakit/Dinas)
+      let masukPill;
+      let pulangPill;
+
+      if (r.isNonTimed) {
+        masukPill = `<span class="time-pill time-none" title="Status ${escapeHtml(r.status_kehadiran)} tidak menggunakan jam masuk">—</span>`;
+        pulangPill = `<span class="time-pill time-none" title="Status ${escapeHtml(r.status_kehadiran)} tidak menggunakan jam pulang">—</span>`;
+      } else {
+        masukPill = `<span class="time-pill">${r.jam_masuk || '-'}</span>`;
+        if (r.isTerlambat) {
+          masukPill = `<span class="time-pill time-danger">${r.jam_masuk} (+${r.menitTerlambat}m)</span>`;
+        } else if (!r.jam_masuk && r.status_kehadiran === 'Hadir') {
+          masukPill = `<span class="time-pill time-warning" title="Belum / tidak ada scan masuk">Kosong ⚠️</span>`;
+        }
+
+        pulangPill = `<span class="time-pill">${r.jam_pulang || '-'}</span>`;
+        if (r.isPulangCepat) {
+          pulangPill = `<span class="time-pill time-warning">${r.jam_pulang} (-${r.menitPulangCepat}m)</span>`;
+        } else if (!r.jam_pulang && r.status_kehadiran === 'Hadir') {
+          pulangPill = `<span class="time-pill" style="background:#FFFBEB; color:#B45309; border:1px solid #FDE68A;" title="Belum melakukan scan keluar">Belum Scan ⏳</span>`;
+        }
       }
 
-      // Jam Pulang Pill
-      let pulangPill = `<span class="time-pill">${r.jam_pulang || '-'}</span>`;
-      if (r.isPulangCepat) {
-        pulangPill = `<span class="time-pill time-warning">${r.jam_pulang} (-${r.menitPulangCepat}m)</span>`;
-      } else if (!r.jam_pulang && r.status_kehadiran === 'Hadir') {
-        pulangPill = `<span class="time-pill" style="background:#FFFBEB; color:#B45309; border:1px solid #FDE68A;" title="Belum melakukan scan keluar">Belum Scan ⏳</span>`;
-      }
+      const weekendTagHtml = r.isWeekend
+        ? `<div><span class="weekend-day-tag">🗓️ Akhir Pekan</span></div>`
+        : '';
 
       const liveBadgeHtml = liveMeta
         ? `<div style="margin-top:3px;"><span class="badge-live-row" title="Diperbarui oleh ${escapeHtml(liveMeta.actorName || 'Pengguna')}">${escapeHtml(liveMeta.label || '⚡ Live')}</span></div>`
         : '';
+
+      let statusIcon = '';
+      if (r.isLembur) statusIcon = '🗓️ ';
+      else if (r.status_kehadiran === 'Izin') statusIcon = '📄 ';
+      else if (r.status_kehadiran === 'Cuti') statusIcon = '🏖️ ';
+      else if (r.status_kehadiran === 'Sakit') statusIcon = '🩺 ';
+      else if (r.status_kehadiran === 'Dinas Luar' || r.status_kehadiran === 'Tugas Belajar') statusIcon = '🏛️ ';
+      else if (r.isTerlambat) statusIcon = '⚠️ ';
+      else if (r.statusLabel === 'Tepat Waktu') statusIcon = '✓ ';
 
       return `
         <tr class="${rowClasses}">
           <td style="color:var(--text-muted); font-weight:600; text-align:center; width:45px;">${rowNo}</td>
           <td style="white-space:nowrap;">
             <strong>${formatTanggalIndo(r.tanggal)}</strong>
+            ${weekendTagHtml}
             ${liveBadgeHtml}
           </td>
           <td>
@@ -659,7 +825,7 @@
           <td style="text-align:center;">${pulangPill}</td>
           <td>
             <span class="badge-status ${r.statusBadgeClass}">
-              ${r.isTerlambat ? '⚠️ ' : (r.statusLabel === 'Tepat Waktu' ? '✓ ' : '')}${r.statusLabel}
+              ${statusIcon}${escapeHtml(r.statusLabel)}
             </span>
             ${r.keterangan ? `<div style="font-size:0.75rem; color:var(--text-muted); margin-top:2px;">${escapeHtml(r.keterangan)}</div>` : ''}
           </td>
@@ -712,7 +878,8 @@
         pulang_cepat: '⏳ Pulang Cepat',
         tanpa_pulang: '⚠️ Belum Scan Pulang',
         anomali: '⚡ Semua Pelanggaran',
-        izin: '📄 Izin / Dinas'
+        lembur: '🗓️ Lembur (Sabtu/Minggu)',
+        izin: '📄 Izin / Cuti / Sakit / Dinas'
       };
       activeList.push({ key: 'status', label: `Status: ${statusLabels[state.filters.status] || state.filters.status}` });
     }
@@ -894,18 +1061,21 @@
           telatCount: 0,
           totalMenitTelat: 0,
           pulangCepatCount: 0,
+          lemburCount: 0,
           izinCount: 0
         });
       }
       const agg = rekapMap.get(r.nip);
-      if (r.status_kehadiran && r.status_kehadiran !== 'Hadir') {
+      if (r.isLembur) {
+        agg.lemburCount++;
+      } else if (r.isIzinCutiSakitDinas) {
         agg.izinCount++;
-      } else {
+      } else if (r.status_kehadiran === 'Hadir') {
         agg.totalHadir++;
         if (r.isTerlambat) {
           agg.telatCount++;
           agg.totalMenitTelat += r.menitTerlambat;
-        } else {
+        } else if (!r.isTanpaMasuk) {
           agg.tepatCount++;
         }
         if (r.isPulangCepat) {
@@ -921,6 +1091,7 @@
         telatCount: 0,
         totalMenitTelat: 0,
         pulangCepatCount: 0,
+        lemburCount: 0,
         izinCount: 0
       };
 
@@ -944,6 +1115,14 @@
         kepatuhanBadge = `<span class="badge-status badge-pulang-cepat">Cukup Baik</span>`;
       }
 
+      const extraChips = [];
+      if (p.lemburCount > 0) {
+        extraChips.push(`<span class="weekend-day-tag" title="Lembur Sabtu/Minggu">🗓️ ${p.lemburCount} Lembur</span>`);
+      }
+      if (p.izinCount > 0) {
+        extraChips.push(`<span class="badge-kepegawaian" style="background:#EFF6FF; color:#1E40AF;" title="Izin / Cuti / Sakit / Dinas Luar">📄 ${p.izinCount} Izin/Cuti/Sakit/Dinas</span>`);
+      }
+
       return `
         <tr>
           <td style="text-align:center; color:var(--text-muted); font-weight:600;">${idx + 1}</td>
@@ -953,6 +1132,7 @@
               <div class="employee-meta">
                 <span>NIP: ${p.nip}</span>
                 <span class="badge-kepegawaian">${escapeHtml(p.status_kepegawaian || 'PNS')}</span>
+                ${extraChips.join(' ')}
               </div>
             </div>
           </td>
@@ -1342,16 +1522,30 @@
       });
     }
 
-    // Form Tambah Presensi
+    // Form Tambah Presensi & Reaktivitas Tanggal Sabtu-Minggu / Status Tanpa Jam
     const formTambah = document.getElementById('form-tambah-presensi');
     if (formTambah) {
       formTambah.addEventListener('submit', handleTambahPresensi);
     }
 
-    // Form Edit Presensi
+    const elTambahTanggal = document.getElementById('modal-tambah-tanggal');
+    const elTambahStatus = document.getElementById('modal-tambah-status');
+    if (elTambahTanggal) {
+      elTambahTanggal.addEventListener('change', () => syncModalTimeFields('tambah', 'date'));
+    }
+    if (elTambahStatus) {
+      elTambahStatus.addEventListener('change', () => syncModalTimeFields('tambah', 'status'));
+    }
+
+    // Form Edit Presensi & Reaktivitas Status Tanpa Jam
     const formEdit = document.getElementById('form-edit-presensi');
     if (formEdit) {
       formEdit.addEventListener('submit', handleSaveEditPresensi);
+    }
+
+    const elEditStatus = document.getElementById('modal-edit-status');
+    if (elEditStatus) {
+      elEditStatus.addEventListener('change', () => syncModalTimeFields('edit', 'status'));
     }
 
     // Tutup modal aktif dengan tombol Escape (Aksesibilitas Keyboard)
@@ -1400,14 +1594,83 @@
   // ==========================================================================
   // CRUD OPERATIONS: MENGATUR DATA PEGAWAI & PRESENSI
   // ==========================================================================
+  function syncModalTimeFields(mode = 'tambah', triggerSource = 'open') {
+    const isTambah = mode === 'tambah';
+    const elTanggal = document.getElementById(isTambah ? 'modal-tambah-tanggal' : 'modal-edit-tanggal');
+    const elStatus = document.getElementById(isTambah ? 'modal-tambah-status' : 'modal-edit-status');
+    const elRowJam = document.getElementById(isTambah ? 'row-jam-tambah' : 'row-jam-edit');
+    const elMasuk = document.getElementById(isTambah ? 'modal-tambah-masuk' : 'modal-edit-masuk');
+    const elPulang = document.getElementById(isTambah ? 'modal-tambah-pulang' : 'modal-edit-pulang');
+    const elNotice = document.getElementById(isTambah ? 'notice-no-jam-tambah' : 'notice-no-jam-edit');
+
+    if (!elStatus) return;
+
+    const tanggalVal = elTanggal ? elTanggal.value : '';
+    const weekend = isWeekendDate(tanggalVal);
+    const optHadir = elStatus.querySelector('option[value="Hadir"]');
+
+    if (weekend) {
+      if (optHadir) {
+        optHadir.disabled = true;
+        optHadir.textContent = 'Hadir (Tidak berlaku di Sabtu/Minggu — Otomatis Lembur)';
+      }
+      if (elStatus.value === 'Hadir' || !elStatus.value) {
+        elStatus.value = 'Lembur';
+        if (isTambah) state.autoSetLemburTambah = true;
+      }
+    } else {
+      if (optHadir) {
+        optHadir.disabled = false;
+        optHadir.textContent = 'Hadir (Hari Kerja — Evaluasi Jam Masuk/Pulang)';
+      }
+      if (isTambah && triggerSource === 'date' && state.autoSetLemburTambah && elStatus.value === 'Lembur') {
+        elStatus.value = 'Hadir';
+        state.autoSetLemburTambah = false;
+      } else if (isTambah && triggerSource === 'status') {
+        state.autoSetLemburTambah = false;
+      }
+    }
+
+    const statusVal = normalizeStatusValue(elStatus.value);
+    const hideTime = weekend || isNonTimedStatus(statusVal);
+
+    if (hideTime) {
+      if (elRowJam) elRowJam.style.display = 'none';
+      if (elMasuk) elMasuk.value = '';
+      if (elPulang) elPulang.value = '';
+
+      if (elNotice) {
+        elNotice.style.display = 'flex';
+        if (statusVal === 'Lembur' && weekend) {
+          const wkDay = getWeekendDayName(tanggalVal);
+          elNotice.className = 'no-time-notice';
+          elNotice.innerHTML = `<span>🗓️</span><div><strong>Lembur Akhir Pekan (${escapeHtml(wkDay)}) — Tidak Ada Jam</strong><br>Hari Sabtu &amp; Minggu tercatat otomatis sebagai <strong>Lembur</strong> tanpa jam masuk maupun jam pulang.</div>`;
+        } else if (statusVal === 'Lembur') {
+          elNotice.className = 'no-time-notice';
+          elNotice.innerHTML = `<span>🗓️</span><div><strong>Status Lembur — Tidak Ada Jam</strong><br>Data lembur dicatat tanpa jam masuk &amp; jam pulang serta tidak dievaluasi sebagai terlambat/pulang cepat.</div>`;
+        } else {
+          elNotice.className = 'no-time-notice notice-izin';
+          elNotice.innerHTML = `<span>📄</span><div><strong>Status ${escapeHtml(statusVal)} — Tidak Ada Jam</strong><br>Status <strong>${escapeHtml(statusVal)}</strong> disimpan tanpa jam masuk &amp; jam pulang (otomatis kosong).</div>`;
+        }
+      }
+    } else {
+      if (elRowJam) elRowJam.style.display = 'grid';
+      if (elNotice) elNotice.style.display = 'none';
+      if (isTambah && elMasuk && elPulang && !elMasuk.value && !elPulang.value) {
+        elMasuk.value = '08:15';
+        elPulang.value = '16:45';
+      }
+    }
+  }
+
   function handleTambahPresensi(e) {
     e.preventDefault();
     const nip = document.getElementById('modal-tambah-pegawai').value;
     const tanggal = document.getElementById('modal-tambah-tanggal').value;
-    const jamMasuk = document.getElementById('modal-tambah-masuk').value || null;
-    const jamPulang = document.getElementById('modal-tambah-pulang').value || null;
-    const status = document.getElementById('modal-tambah-status').value || 'Hadir';
-    const keterangan = document.getElementById('modal-tambah-keterangan').value || null;
+    const rawMasuk = document.getElementById('modal-tambah-masuk').value || null;
+    const rawPulang = document.getElementById('modal-tambah-pulang').value || null;
+    const rawStatus = document.getElementById('modal-tambah-status').value || 'Hadir';
+    const rawKeterangan = document.getElementById('modal-tambah-keterangan').value || null;
 
     if (!nip || !tanggal) {
       alert('Silakan pilih pegawai dan tanggal presensi.');
@@ -1422,28 +1685,28 @@
 
     if (existingIdx >= 0) {
       subAction = 'UPDATE';
-      targetRecord = {
+      targetRecord = normalizeAttendanceRecord({
         ...state.absensiList[existingIdx],
         nama_lengkap: emp.nama_lengkap || state.absensiList[existingIdx].nama_lengkap || 'Pegawai',
         unit_kerja: emp.unit_kerja || state.absensiList[existingIdx].unit_kerja || '-',
-        jam_masuk: jamMasuk,
-        jam_pulang: jamPulang,
-        status_kehadiran: status,
-        keterangan
-      };
+        jam_masuk: rawMasuk,
+        jam_pulang: rawPulang,
+        status_kehadiran: rawStatus,
+        keterangan: rawKeterangan
+      });
       state.absensiList[existingIdx] = targetRecord;
     } else {
-      targetRecord = {
+      targetRecord = normalizeAttendanceRecord({
         id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
         tanggal,
         nip,
         nama_lengkap: emp.nama_lengkap || 'Pegawai',
         unit_kerja: emp.unit_kerja || '-',
-        jam_masuk: jamMasuk,
-        jam_pulang: jamPulang,
-        status_kehadiran: status,
-        keterangan
-      };
+        jam_masuk: rawMasuk,
+        jam_pulang: rawPulang,
+        status_kehadiran: rawStatus,
+        keterangan: rawKeterangan
+      });
       state.absensiList.unshift(targetRecord);
     }
 
@@ -1461,8 +1724,8 @@
     evaluateAndRender();
     showToast(
       subAction === 'INSERT'
-        ? `Presensi untuk ${emp.nama_lengkap} (${tanggal}) berhasil ditambahkan & disiarkan live!`
-        : `Presensi ${emp.nama_lengkap} (${tanggal}) berhasil diperbarui & disiarkan live!`,
+        ? `Presensi ${targetRecord.status_kehadiran} untuk ${emp.nama_lengkap} (${tanggal}) berhasil ditambahkan & disiarkan live!`
+        : `Presensi ${targetRecord.status_kehadiran} ${emp.nama_lengkap} (${tanggal}) berhasil diperbarui & disiarkan live!`,
       'success'
     );
 
@@ -1478,6 +1741,7 @@
       return;
     }
 
+    const normRec = normalizeAttendanceRecord(rec);
     state.editingRecordId = rec.id;
 
     const elPegawai = document.getElementById('modal-edit-pegawai');
@@ -1487,13 +1751,14 @@
     const elStatus = document.getElementById('modal-edit-status');
     const elKet = document.getElementById('modal-edit-keterangan');
 
-    if (elPegawai) elPegawai.value = `${rec.nama_lengkap} (${rec.nip})`;
-    if (elTanggal) elTanggal.value = rec.tanggal;
-    if (elMasuk) elMasuk.value = rec.jam_masuk || '';
-    if (elPulang) elPulang.value = rec.jam_pulang || '';
-    if (elStatus) elStatus.value = rec.status_kehadiran || 'Hadir';
-    if (elKet) elKet.value = rec.keterangan || '';
+    if (elPegawai) elPegawai.value = `${normRec.nama_lengkap} (${normRec.nip})`;
+    if (elTanggal) elTanggal.value = normRec.tanggal;
+    if (elStatus) elStatus.value = normRec.status_kehadiran || 'Hadir';
+    if (elMasuk) elMasuk.value = normRec.jam_masuk || '';
+    if (elPulang) elPulang.value = normRec.jam_pulang || '';
+    if (elKet) elKet.value = normRec.keterangan || '';
 
+    syncModalTimeFields('edit', 'open');
     openModal('modal-edit');
   }
 
@@ -1501,24 +1766,30 @@
     e.preventDefault();
     if (!state.editingRecordId) return;
 
-    const rec = state.absensiList.find(r => String(r.id) === String(state.editingRecordId));
-    if (!rec) {
+    const idx = state.absensiList.findIndex(r => String(r.id) === String(state.editingRecordId));
+    if (idx < 0) {
       showToast('Data presensi tidak ditemukan saat menyimpan perubahan.', 'danger');
       return;
     }
 
-    rec.jam_masuk = document.getElementById('modal-edit-masuk').value || null;
-    rec.jam_pulang = document.getElementById('modal-edit-pulang').value || null;
-    rec.status_kehadiran = document.getElementById('modal-edit-status').value || 'Hadir';
-    rec.keterangan = document.getElementById('modal-edit-keterangan').value || null;
+    const prev = state.absensiList[idx];
+    const updated = normalizeAttendanceRecord({
+      ...prev,
+      jam_masuk: document.getElementById('modal-edit-masuk').value || null,
+      jam_pulang: document.getElementById('modal-edit-pulang').value || null,
+      status_kehadiran: document.getElementById('modal-edit-status').value || 'Hadir',
+      keterangan: document.getElementById('modal-edit-keterangan').value || null
+    });
+
+    state.absensiList[idx] = updated;
 
     saveAbsensi(true);
     closeModal('modal-edit');
     evaluateAndRender();
-    showToast(`Perubahan presensi untuk ${rec.nama_lengkap} berhasil disimpan & disinkronkan live!`, 'success');
+    showToast(`Perubahan presensi (${updated.status_kehadiran}) untuk ${updated.nama_lengkap} berhasil disimpan & disinkronkan live!`, 'success');
 
     if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
-      window.supabaseSync.updateRecordInCloud(rec, 'UPDATE').catch(() => {});
+      window.supabaseSync.updateRecordInCloud(updated, 'UPDATE').catch(() => {});
     }
   }
 
@@ -1556,12 +1827,13 @@
     if (confirm('Kembalikan seluruh data presensi ke database resmi FHISIP UT (September & Oktober)? Perubahan ini juga akan mereset data di Cloud agar semua perangkat selaras.')) {
       const initial = window.INITIAL_FHISIP_DATA || { pegawai: [], absensi: [] };
       state.liveHighlights.clear();
+      const normalizedInitial = (initial.absensi ? [...initial.absensi] : []).map(normalizeAttendanceRecord);
       if (window.StorageManager) {
-        state.absensiList = await window.StorageManager.resetToDefault(initial.absensi, DEFAULT_CONFIG);
+        state.absensiList = await window.StorageManager.resetToDefault(normalizedInitial, DEFAULT_CONFIG);
       } else {
         localStorage.removeItem(STORAGE_KEY_ABSENSI);
         localStorage.removeItem(STORAGE_KEY_CONFIG);
-        state.absensiList = initial.absensi ? [...initial.absensi] : [];
+        state.absensiList = normalizedInitial;
       }
       loadConfig();
       populateDateDropdown();
@@ -1604,6 +1876,8 @@
 
     const rows = recordsToExport.map((r, i) => {
       const emp = state.pegawaiList.find(p => p.nip === r.nip) || {};
+      const isFriday = getDayOfWeek(r.tanggal) === 5;
+      const batasPulangRow = isFriday ? state.config.jamPulangJumat : state.config.jamPulang;
       return [
         i + 1,
         r.tanggal,
@@ -1611,11 +1885,11 @@
         `"${(r.nama_lengkap || emp.nama_lengkap || '').replace(/"/g, '""')}"`,
         `"${(emp.status_kepegawaian || 'Pegawai').replace(/"/g, '""')}"`,
         `"${(r.unit_kerja || emp.unit_kerja || '').replace(/"/g, '""')}"`,
-        r.jam_masuk || '-',
-        state.config.jamMasuk,
-        r.menitTerlambat || 0,
-        r.jam_pulang || '-',
-        state.config.jamPulang,
+        r.isNonTimed ? '-' : (r.jam_masuk || '-'),
+        r.isNonTimed ? '-' : state.config.jamMasuk,
+        r.isNonTimed ? 0 : (r.menitTerlambat || 0),
+        r.isNonTimed ? '-' : (r.jam_pulang || '-'),
+        r.isNonTimed ? '-' : batasPulangRow,
         `"${r.statusLabel}"`,
         `"${(r.keterangan || '').replace(/"/g, '""')}"`
       ];
@@ -1642,6 +1916,9 @@
   // MODAL & UI HELPERS
   // ==========================================================================
   function openModal(modalId) {
+    if (modalId === 'modal-tambah') {
+      syncModalTimeFields('tambah', 'open');
+    }
     const el = document.getElementById(modalId);
     if (el) el.classList.add('active');
   }
@@ -1677,7 +1954,10 @@
   function formatTanggalIndo(dateStr) {
     if (!dateStr) return '-';
     try {
-      const d = new Date(dateStr);
+      const parts = String(dateStr).trim().slice(0, 10).split('-').map(Number);
+      const d = (parts.length === 3 && !parts.some(isNaN))
+        ? new Date(parts[0], parts[1] - 1, parts[2])
+        : new Date(dateStr);
       if (isNaN(d.getTime())) return dateStr;
       return d.toLocaleDateString('id-ID', {
         weekday: 'short',
@@ -1718,18 +1998,21 @@
           telatCount: 0,
           totalMenitTelat: 0,
           pulangCepatCount: 0,
+          lemburCount: 0,
           izinCount: 0
         });
       }
       const agg = rekapMap.get(r.nip);
-      if (r.status_kehadiran && r.status_kehadiran !== 'Hadir') {
+      if (r.isLembur) {
+        agg.lemburCount++;
+      } else if (r.isIzinCutiSakitDinas) {
         agg.izinCount++;
-      } else {
+      } else if (r.status_kehadiran === 'Hadir') {
         agg.totalHadir++;
         if (r.isTerlambat) {
           agg.telatCount++;
           agg.totalMenitTelat += r.menitTerlambat;
-        } else {
+        } else if (!r.isTanpaMasuk) {
           agg.tepatCount++;
         }
         if (r.isPulangCepat) {
@@ -1745,6 +2028,7 @@
         telatCount: 0,
         totalMenitTelat: 0,
         pulangCepatCount: 0,
+        lemburCount: 0,
         izinCount: 0
       };
       const pctDisiplin = agg.totalHadir > 0 ? ((agg.tepatCount / agg.totalHadir) * 100).toFixed(1) : 100;
@@ -1805,11 +2089,11 @@
     }
 
     const emp = state.pegawaiList.find(p => p.nip === record.nip) || {};
-    const enriched = {
+    const enriched = normalizeAttendanceRecord({
       ...record,
       nama_lengkap: record.nama_lengkap || emp.nama_lengkap || 'Pegawai',
       unit_kerja: record.unit_kerja || emp.unit_kerja || 'FHISIP'
-    };
+    });
 
     const existingIdx = state.absensiList.findIndex(
       r => (r.nip === enriched.nip && r.tanggal === enriched.tanggal) ||
@@ -1818,10 +2102,10 @@
 
     let outcome = 'updated';
     if (existingIdx >= 0) {
-      state.absensiList[existingIdx] = {
+      state.absensiList[existingIdx] = normalizeAttendanceRecord({
         ...state.absensiList[existingIdx],
         ...enriched
-      };
+      });
     } else {
       state.absensiList.unshift(enriched);
       outcome = 'inserted';
@@ -1868,14 +2152,15 @@
   function applyRemoteDataset(records, actor = null, toastMessage = null, opts = {}) {
     if (!Array.isArray(records)) return;
 
+    const normalizedRecords = records.map(normalizeAttendanceRecord);
     const currentSig = computeDatasetSignature(state.absensiList);
-    const nextSig = computeDatasetSignature(records);
+    const nextSig = computeDatasetSignature(normalizedRecords);
 
-    if (currentSig === nextSig && state.absensiList.length === records.length) {
+    if (currentSig === nextSig && state.absensiList.length === normalizedRecords.length) {
       return; // Data sudah identik, hemat re-render DOM
     }
 
-    state.absensiList = records;
+    state.absensiList = normalizedRecords;
     saveAbsensi(true, { skipServerPush: true, silentBadge: true });
     populateDateDropdown();
     evaluateAndRender();
@@ -1932,10 +2217,11 @@
               try {
                 const parsed = JSON.parse(syncRecords);
                 if (Array.isArray(parsed)) {
+                  const normalizedParsed = parsed.map(normalizeAttendanceRecord);
                   const sigBefore = computeDatasetSignature(state.absensiList);
-                  const sigAfter = computeDatasetSignature(parsed);
+                  const sigAfter = computeDatasetSignature(normalizedParsed);
                   if (sigBefore !== sigAfter) {
-                    state.absensiList = parsed;
+                    state.absensiList = normalizedParsed;
                     populateDateDropdown();
                     evaluateAndRender();
                   }
@@ -1965,10 +2251,14 @@
     getPegawaiList: () => state.pegawaiList,
     getAbsensiList: () => state.absensiList,
     setAbsensiList: (list) => {
-      state.absensiList = list;
+      state.absensiList = Array.isArray(list) ? list.map(normalizeAttendanceRecord) : [];
       saveAbsensi(true);
       populateDateDropdown();
     },
+    isWeekendDate,
+    isNonTimedStatus,
+    normalizeStatusValue,
+    normalizeAttendanceRecord,
     mergePegawaiList,
     applyRemoteRecordUpsert,
     applyRemoteRecordDelete,

@@ -124,7 +124,7 @@ BEGIN
     END IF;
 END $$;
 
--- VIEW REKAP PRESENSI DENGAN EVALUASI DISIPLIN
+-- VIEW REKAP PRESENSI DENGAN EVALUASI DISIPLIN (SABTU-MINGGU = LEMBUR TANPA JAM, IZIN/CUTI/SAKIT/DINAS = TANPA JAM)
 CREATE OR REPLACE VIEW public.v_rekap_absensi_fhisip AS
 SELECT 
     a.id,
@@ -134,11 +134,21 @@ SELECT
     p.status_kepegawaian,
     p.jabatan,
     u.nama AS unit_kerja,
-    a.jam_masuk,
-    a.jam_pulang,
-    a.status_kehadiran,
+    CASE
+        WHEN EXTRACT(DOW FROM a.tanggal) IN (0, 6) OR a.status_kehadiran <> 'Hadir' THEN NULL
+        ELSE a.jam_masuk
+    END AS jam_masuk,
+    CASE
+        WHEN EXTRACT(DOW FROM a.tanggal) IN (0, 6) OR a.status_kehadiran <> 'Hadir' THEN NULL
+        ELSE a.jam_pulang
+    END AS jam_pulang,
+    CASE
+        WHEN EXTRACT(DOW FROM a.tanggal) IN (0, 6) AND (a.status_kehadiran IS NULL OR a.status_kehadiran = 'Hadir') THEN 'Lembur'
+        ELSE a.status_kehadiran
+    END AS status_kehadiran,
     a.keterangan,
     CASE 
+        WHEN EXTRACT(DOW FROM a.tanggal) IN (0, 6) AND (a.status_kehadiran IS NULL OR a.status_kehadiran = 'Hadir') THEN 'Lembur'
         WHEN a.status_kehadiran <> 'Hadir' THEN a.status_kehadiran
         WHEN a.jam_masuk > '08:30' AND a.jam_pulang < '16:30' THEN 'Telat & Pulang Cepat'
         WHEN a.jam_masuk > '08:30' THEN 'Terlambat'
@@ -146,6 +156,7 @@ SELECT
         ELSE 'Tepat Waktu'
     END AS status_disiplin_resmi,
     CASE 
+        WHEN EXTRACT(DOW FROM a.tanggal) IN (0, 6) OR a.status_kehadiran <> 'Hadir' THEN 0
         WHEN a.jam_masuk IS NOT NULL AND a.jam_masuk > '08:30' 
         THEN (CAST(SPLIT_PART(a.jam_masuk, ':', 1) AS INT) * 60 + CAST(SPLIT_PART(a.jam_masuk, ':', 2) AS INT)) - (8 * 60 + 30)
         ELSE 0 

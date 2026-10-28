@@ -5761,10 +5761,10 @@ window.INITIAL_FHISIP_DATA = {
       "nip": "197305122016032253",
       "nama_lengkap": "ISMA DWI FIANI",
       "unit_kerja": "Program Studi S1 Ilmu Komunikasi",
-      "jam_masuk": "09:14",
-      "jam_pulang": "17:17",
-      "status_kehadiran": "Hadir",
-      "keterangan": "Mesin Biometrik"
+      "jam_masuk": null,
+      "jam_pulang": null,
+      "status_kehadiran": "Lembur",
+      "keterangan": "Lembur Akhir Pekan (Sabtu)"
     },
     {
       "id": 438,
@@ -5772,10 +5772,10 @@ window.INITIAL_FHISIP_DATA = {
       "nip": "198905122008032569",
       "nama_lengkap": "Amud Sunarya",
       "unit_kerja": "Program Studi S1 Administrasi Publik",
-      "jam_masuk": "09:46",
-      "jam_pulang": "17:43",
-      "status_kehadiran": "Hadir",
-      "keterangan": "Mesin Biometrik"
+      "jam_masuk": null,
+      "jam_pulang": null,
+      "status_kehadiran": "Lembur",
+      "keterangan": "Lembur Akhir Pekan (Sabtu)"
     },
     {
       "id": 439,
@@ -5783,10 +5783,10 @@ window.INITIAL_FHISIP_DATA = {
       "nip": "201210001807",
       "nama_lengkap": "Husnaeni Fauziah Amani,",
       "unit_kerja": "Program Studi S1 Ilmu Komunikasi",
-      "jam_masuk": "09:02",
-      "jam_pulang": "17:16",
-      "status_kehadiran": "Hadir",
-      "keterangan": "Mesin Biometrik"
+      "jam_masuk": null,
+      "jam_pulang": null,
+      "status_kehadiran": "Lembur",
+      "keterangan": "Lembur Akhir Pekan (Sabtu)"
     },
     {
       "id": 440,
@@ -11635,10 +11635,10 @@ window.INITIAL_FHISIP_DATA = {
       "nip": "198405122012032339",
       "nama_lengkap": "MUHAMAD LAZUARDI",
       "unit_kerja": "Bagian Tata Usaha: Kemahasiswaan",
-      "jam_masuk": "08:13",
-      "jam_pulang": "14:19",
-      "status_kehadiran": "Hadir",
-      "keterangan": "Mesin Biometrik"
+      "jam_masuk": null,
+      "jam_pulang": null,
+      "status_kehadiran": "Lembur",
+      "keterangan": "Lembur Akhir Pekan (Sabtu)"
     },
     {
       "id": 972,
@@ -11646,10 +11646,10 @@ window.INITIAL_FHISIP_DATA = {
       "nip": "199205122021032870",
       "nama_lengkap": "Viola Dwi Putri Syarif, S.Hum., M.IP.",
       "unit_kerja": "Program Studi Perpustakaan dan Sains Informasi",
-      "jam_masuk": "09:13",
-      "jam_pulang": "18:38",
-      "status_kehadiran": "Hadir",
-      "keterangan": "Mesin Biometrik"
+      "jam_masuk": null,
+      "jam_pulang": null,
+      "status_kehadiran": "Lembur",
+      "keterangan": "Lembur Akhir Pekan (Sabtu)"
     },
     {
       "id": 973,
@@ -11657,10 +11657,10 @@ window.INITIAL_FHISIP_DATA = {
       "nip": "201610001973",
       "nama_lengkap": "M. Rizki Adiyaksa",
       "unit_kerja": "Bagian Tata Usaha: Kemahasiswaan",
-      "jam_masuk": "08:27",
-      "jam_pulang": "14:00",
-      "status_kehadiran": "Hadir",
-      "keterangan": "Mesin Biometrik"
+      "jam_masuk": null,
+      "jam_pulang": null,
+      "status_kehadiran": "Lembur",
+      "keterangan": "Lembur Akhir Pekan (Sabtu)"
     },
     {
       "id": 974,

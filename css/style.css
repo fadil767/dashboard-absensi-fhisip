@@ -1197,6 +1197,17 @@ body {
   color: var(--success-text);
 }
 
+.status-filter-btn.active.filter-lembur {
+  background: #F5F3FF;
+  color: #5B21B6;
+  border-color: #C4B5FD;
+}
+
+.status-filter-btn.active.filter-lembur .filter-pill-count {
+  background: #DDD6FE;
+  color: #5B21B6;
+}
+
 /* Action buttons group */
 .filter-action-group {
   display: flex;
@@ -1514,6 +1525,36 @@ tbody tr.highlight-telat:hover td {
   border: 1px solid var(--info-border);
 }
 
+.badge-cuti {
+  background: #ECFEFF;
+  color: #0E7490;
+  border: 1px solid #A5F3FC;
+}
+
+.badge-sakit {
+  background: #FEFCE8;
+  color: #854D0E;
+  border: 1px solid #FEF08A;
+}
+
+.badge-dinas {
+  background: #F0FDFA;
+  color: #0F766E;
+  border: 1px solid #99F6E4;
+}
+
+.badge-lembur {
+  background: #F5F3FF;
+  color: #5B21B6;
+  border: 1px solid #DDD6FE;
+}
+
+.badge-warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
+}
+
 .badge-alpha {
   background: #F1F5F9;
   color: #475569;
@@ -1544,6 +1585,49 @@ tbody tr.highlight-telat:hover td {
   background: var(--warning-bg);
   border-color: var(--warning-border);
   font-weight: 700;
+}
+
+.time-pill.time-none {
+  color: #64748B;
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  font-family: inherit;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 3px 9px;
+}
+
+.weekend-day-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background: #F5F3FF;
+  color: #6D28D9;
+  border: 1px solid #DDD6FE;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.no-time-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  background: #F5F3FF;
+  border: 1px solid #DDD6FE;
+  color: #4C1D95;
+  font-size: 0.81rem;
+  line-height: 1.45;
+}
+
+.no-time-notice.notice-izin {
+  background: #EFF6FF;
+  border-color: #BFDBFE;
+  color: #1E3A8A;
 }
 
 /* Action Table Buttons */

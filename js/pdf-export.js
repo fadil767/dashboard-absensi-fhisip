@@ -129,7 +129,8 @@
         let statusColor = '#065F46'; // Tepat waktu hijau
         if (r.isTerlambat) statusColor = '#991B1B'; // Telat merah
         else if (r.isPulangCepat) statusColor = '#92400E'; // Pulang cepat amber
-        else if (r.status_kehadiran !== 'Hadir') statusColor = '#1E40AF'; // Izin biru
+        else if (r.isLembur) statusColor = '#5B21B6'; // Lembur Sabtu/Minggu ungu
+        else if (r.status_kehadiran !== 'Hadir') statusColor = '#1E40AF'; // Izin/Cuti/Sakit/Dinas biru
 
         let statusText = r.statusLabel;
         if (r.isTerlambat) {
@@ -138,14 +139,17 @@
           statusText = `Pulang (-${r.menitPulangCepat}m)`;
         }
 
+        const masukText = r.isNonTimed ? '-' : (r.jam_masuk || '-');
+        const pulangText = r.isNonTimed ? '-' : (r.jam_pulang || '-');
+
         tableBody.push([
           { text: idx + 1, alignment: 'center' },
           { text: r.tanggal, alignment: 'center', fontSize: 7.5 },
           { text: r.nip, fontSize: 7.5 },
           { text: r.nama_lengkap || 'Pegawai', bold: true },
           { text: r.unit_kerja || '-', fontSize: 7.5 },
-          { text: r.jam_masuk || '-', alignment: 'center', bold: r.isTerlambat, color: r.isTerlambat ? '#991B1B' : '#000' },
-          { text: r.jam_pulang || '-', alignment: 'center', bold: r.isPulangCepat, color: r.isPulangCepat ? '#92400E' : '#000' },
+          { text: masukText, alignment: 'center', bold: r.isTerlambat, color: r.isTerlambat ? '#991B1B' : (r.isNonTimed ? '#64748B' : '#000') },
+          { text: pulangText, alignment: 'center', bold: r.isPulangCepat, color: r.isPulangCepat ? '#92400E' : (r.isNonTimed ? '#64748B' : '#000') },
           { text: statusText, color: statusColor, bold: true, fontSize: 7.5 },
           { text: r.keterangan || '-', fontSize: 7 }
         ]);

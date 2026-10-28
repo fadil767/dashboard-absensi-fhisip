@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.2">
+  <link rel="stylesheet" href="css/style.css?v=2.3">
 </head>
 <body>
 
@@ -424,8 +424,11 @@
             <button type="button" class="status-filter-btn" data-status="anomali">
               ⚡ Semua Pelanggaran <span class="filter-pill-count" id="count-status-anomali">0</span>
             </button>
+            <button type="button" class="status-filter-btn filter-lembur" data-status="lembur">
+              🗓️ Lembur <span class="filter-pill-count" id="count-status-lembur">0</span>
+            </button>
             <button type="button" class="status-filter-btn" data-status="izin">
-              📄 Izin / Dinas <span class="filter-pill-count" id="count-status-izin">0</span>
+              📄 Izin / Cuti / Sakit / Dinas <span class="filter-pill-count" id="count-status-izin">0</span>
             </button>
           </div>
 
@@ -654,7 +657,20 @@
             <input type="date" id="modal-tambah-tanggal" class="form-control" value="2026-10-20" required>
           </div>
 
-          <div class="form-row">
+          <div class="form-group">
+            <label for="modal-tambah-status">Status Kehadiran</label>
+            <select id="modal-tambah-status" class="form-control">
+              <option value="Hadir">Hadir (Hari Kerja — Evaluasi Jam Masuk/Pulang)</option>
+              <option value="Lembur">Lembur (Sabtu / Minggu — Tanpa Jam)</option>
+              <option value="Izin">Izin Resmi (Tanpa Jam)</option>
+              <option value="Cuti">Cuti Tahunan / Bersama (Tanpa Jam)</option>
+              <option value="Sakit">Sakit (Tanpa Jam)</option>
+              <option value="Dinas Luar">Dinas Luar / Tugas Luar (Tanpa Jam)</option>
+              <option value="Alpha">Tanpa Keterangan / Alpha (Tanpa Jam)</option>
+            </select>
+          </div>
+
+          <div class="form-row" id="row-jam-tambah">
             <div class="form-group">
               <label for="modal-tambah-masuk">Jam Datang / Masuk</label>
               <input type="time" id="modal-tambah-masuk" class="form-control" value="08:15">
@@ -665,21 +681,11 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="modal-tambah-status">Status Kehadiran</label>
-            <select id="modal-tambah-status" class="form-control">
-              <option value="Hadir">Hadir (Evaluasi Jam Masuk/Pulang)</option>
-              <option value="Dinas Luar">Dinas Luar / Tugas Luar</option>
-              <option value="Izin">Izin Resmi</option>
-              <option value="Sakit">Sakit</option>
-              <option value="Cuti">Cuti Tahunan / Bersama</option>
-              <option value="Alpha">Tanpa Keterangan (Alpha)</option>
-            </select>
-          </div>
+          <div id="notice-no-jam-tambah" class="no-time-notice" style="display:none;" role="status" aria-live="polite"></div>
 
           <div class="form-group">
             <label for="modal-tambah-keterangan">Keterangan / Catatan</label>
-            <input type="text" id="modal-tambah-keterangan" class="form-control" placeholder="Contoh: Rapat Dekanat, Tugas ke UT Daerah, Dispensasi hujan">
+            <input type="text" id="modal-tambah-keterangan" class="form-control" placeholder="Contoh: Lembur Akhir Pekan, Surat Sakit, Tugas ke UT Daerah">
           </div>
         </div>
 
@@ -712,7 +718,20 @@
             <input type="date" id="modal-edit-tanggal" class="form-control" readonly style="background:#F1F5F9;">
           </div>
 
-          <div class="form-row">
+          <div class="form-group">
+            <label for="modal-edit-status">Status Kehadiran</label>
+            <select id="modal-edit-status" class="form-control">
+              <option value="Hadir">Hadir (Hari Kerja — Evaluasi Jam Masuk/Pulang)</option>
+              <option value="Lembur">Lembur (Sabtu / Minggu — Tanpa Jam)</option>
+              <option value="Izin">Izin Resmi (Tanpa Jam)</option>
+              <option value="Cuti">Cuti Tahunan / Bersama (Tanpa Jam)</option>
+              <option value="Sakit">Sakit (Tanpa Jam)</option>
+              <option value="Dinas Luar">Dinas Luar / Tugas Luar (Tanpa Jam)</option>
+              <option value="Alpha">Tanpa Keterangan / Alpha (Tanpa Jam)</option>
+            </select>
+          </div>
+
+          <div class="form-row" id="row-jam-edit">
             <div class="form-group">
               <label for="modal-edit-masuk">Jam Datang / Masuk</label>
               <input type="time" id="modal-edit-masuk" class="form-control">
@@ -723,17 +742,7 @@
             </div>
           </div>
 
-          <div class="form-group">
-            <label for="modal-edit-status">Status Kehadiran</label>
-            <select id="modal-edit-status" class="form-control">
-              <option value="Hadir">Hadir</option>
-              <option value="Dinas Luar">Dinas Luar / Tugas Luar</option>
-              <option value="Izin">Izin Resmi</option>
-              <option value="Sakit">Sakit</option>
-              <option value="Cuti">Cuti</option>
-              <option value="Alpha">Tanpa Keterangan (Alpha)</option>
-            </select>
-          </div>
+          <div id="notice-no-jam-edit" class="no-time-notice" style="display:none;" role="status" aria-live="polite"></div>
 
           <div class="form-group">
             <label for="modal-edit-keterangan">Keterangan / Catatan Dispensasi</label>
@@ -1111,21 +1120,21 @@
                 <td><span class="badge-code">HH:MM</span></td>
                 <td>Opsional</td>
                 <td><span class="badge-code">08:14</span></td>
-                <td>Waktu tap masuk biometrik format 24 jam (kosongkan jika cuti/sakit).</td>
+                <td>Waktu tap masuk format 24 jam (otomatis tanpa jam untuk Sabtu-Minggu Lembur, Izin, Cuti, Sakit, &amp; Dinas Luar).</td>
               </tr>
               <tr>
                 <td><strong>Jam Pulang</strong></td>
                 <td><span class="badge-code">HH:MM</span></td>
                 <td>Opsional</td>
                 <td><span class="badge-code">16:45</span></td>
-                <td>Waktu tap kepulangan format 24 jam.</td>
+                <td>Waktu tap pulang format 24 jam (otomatis tanpa jam untuk Sabtu-Minggu Lembur, Izin, Cuti, Sakit, &amp; Dinas Luar).</td>
               </tr>
               <tr>
                 <td><strong>Status Kehadiran</strong></td>
                 <td><span class="badge-code">Kategori</span></td>
                 <td><span style="color:var(--danger); font-weight:700;">Wajib</span></td>
                 <td><span class="badge-code">Hadir</span></td>
-                <td>Pilihan nilai baku: <em>Hadir, Cuti, Sakit, Izin, Dinas Luar</em>.</td>
+                <td>Nilai baku: <em>Hadir</em> (dengan jam), serta <em>Lembur</em> (Sabtu/Minggu), <em>Izin, Cuti, Sakit, Dinas Luar</em> (tanpa jam).</td>
               </tr>
               <tr>
                 <td><strong>Keterangan</strong></td>
@@ -1252,13 +1261,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js"></script>
-  <script src="js/storage-manager.js?v=2.2"></script>
-  <script src="js/excel-import.js?v=2.2"></script>
-  <script src="js/excel-monthly-report.js"></script>
-  <script src="js/pdf-export.js"></script>
-  <script src="js/supabase-client.js?v=2.2"></script>
-  <script src="js/app.js?v=2.2"></script>
+  <script src="js/data-fhisip.js?v=2.3"></script>
+  <script src="js/storage-manager.js?v=2.3"></script>
+  <script src="js/excel-import.js?v=2.3"></script>
+  <script src="js/excel-monthly-report.js?v=2.3"></script>
+  <script src="js/pdf-export.js?v=2.3"></script>
+  <script src="js/supabase-client.js?v=2.3"></script>
+  <script src="js/app.js?v=2.3"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       const parts = ymVal.split('-');

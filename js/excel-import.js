@@ -24,6 +24,44 @@
     keterangan: ['keterangan', 'catatan', 'ket', 'note', 'notes', 'alasan']
   };
 
+  function isWeekendYmd(ymd) {
+    if (!ymd || typeof ymd !== 'string') return false;
+    const parts = ymd.trim().slice(0, 10).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return false;
+    const dow = new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+    return dow === 0 || dow === 6;
+  }
+
+  function detectNonTimedStatusToken(rawStr) {
+    if (!rawStr) return null;
+    const low = String(rawStr).trim().toLowerCase();
+    if (!low) return null;
+    if (low === 'lembur' || low === 'lbr' || low === 'overtime') return 'Lembur';
+    if (low === 'izin' || low === 'ijin') return 'Izin';
+    if (low === 'cuti' || low === 'ct') return 'Cuti';
+    if (low === 'sakit' || low === 'skt') return 'Sakit';
+    if (low === 'dinas' || low === 'dinas luar' || low === 'dl' || low === 'tl' || low === 'tugas luar') return 'Dinas Luar';
+    if (low === 'alpha' || low === 'alpa' || low === 'tk' || low === 'tanpa keterangan') return 'Alpha';
+    return null;
+  }
+
+  function normalizeImportedRecord(rec) {
+    if (window.app && typeof window.app.normalizeAttendanceRecord === 'function') {
+      return window.app.normalizeAttendanceRecord(rec);
+    }
+    const weekend = isWeekendYmd(rec.tanggal);
+    const tokenStatus = detectNonTimedStatusToken(rec.status_kehadiran);
+    let status = tokenStatus || (rec.status_kehadiran ? String(rec.status_kehadiran).trim() : 'Hadir');
+    if (weekend && status === 'Hadir') status = 'Lembur';
+    const nonTimed = weekend || status !== 'Hadir';
+    return {
+      ...rec,
+      status_kehadiran: status,
+      jam_masuk: nonTimed ? null : (rec.jam_masuk || null),
+      jam_pulang: nonTimed ? null : (rec.jam_pulang || null)
+    };
+  }
+
   /**
    * Menangani pemilihan / drop berkas Excel
    */
@@ -186,6 +224,7 @@
             let masuk = null;
             let pulang = null;
             let hasScan = false;
+            let detectedStatus = null;
 
             // Jika nilai berupa pecahan serial Excel (contoh: 0.3020833333333333)
             if (typeof cellVal === 'number') {
@@ -199,32 +238,38 @@
             } else if (cellVal) {
               const s = String(cellVal).replace(/\r?\n/g, ' ').trim();
               if (s && s !== '-' && s !== '     -     ') {
-                // Pola 1: Jam Masuk dan Pulang lengkap "06:57-16:33"
-                const mBoth = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.exec(s);
-                if (mBoth) {
-                  masuk = mBoth[1].padStart(5, '0');
-                  pulang = mBoth[2].padStart(5, '0');
+                const statusToken = detectNonTimedStatusToken(s);
+                if (statusToken) {
+                  detectedStatus = statusToken;
                   hasScan = true;
                 } else {
-                  // Pola 2: Masuk saja "07:15-"
-                  const mIn = /(\d{1,2}:\d{2})\s*-/.exec(s);
-                  if (mIn) {
-                    masuk = mIn[1].padStart(5, '0');
+                  // Pola 1: Jam Masuk dan Pulang lengkap "06:57-16:33"
+                  const mBoth = /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})/.exec(s);
+                  if (mBoth) {
+                    masuk = mBoth[1].padStart(5, '0');
+                    pulang = mBoth[2].padStart(5, '0');
                     hasScan = true;
                   } else {
-                    // Pola 3: Pulang saja "-16:35"
-                    const mOut = /-\s*(\d{1,2}:\d{2})/.exec(s);
-                    if (mOut) {
-                      pulang = mOut[1].padStart(5, '0');
+                    // Pola 2: Masuk saja "07:15-"
+                    const mIn = /(\d{1,2}:\d{2})\s*-/.exec(s);
+                    if (mIn) {
+                      masuk = mIn[1].padStart(5, '0');
                       hasScan = true;
                     } else {
-                      // Pola 4: Satu jam tunggal
-                      const mSingle = /(\d{1,2}:\d{2})/.exec(s);
-                      if (mSingle) {
-                        const t = mSingle[1].padStart(5, '0');
-                        const [hh] = t.split(':').map(Number);
-                        if (hh < 12) masuk = t; else pulang = t;
+                      // Pola 3: Pulang saja "-16:35"
+                      const mOut = /-\s*(\d{1,2}:\d{2})/.exec(s);
+                      if (mOut) {
+                        pulang = mOut[1].padStart(5, '0');
                         hasScan = true;
+                      } else {
+                        // Pola 4: Satu jam tunggal
+                        const mSingle = /(\d{1,2}:\d{2})/.exec(s);
+                        if (mSingle) {
+                          const t = mSingle[1].padStart(5, '0');
+                          const [hh] = t.split(':').map(Number);
+                          if (hh < 12) masuk = t; else pulang = t;
+                          hasScan = true;
+                        }
                       }
                     }
                   }
@@ -233,7 +278,7 @@
             }
 
             if (hasScan) {
-              results.push({
+              const rawRec = normalizeImportedRecord({
                 id: Date.now() + results.length + Math.floor(Math.random() * 1000),
                 nip: currentEmp.nip,
                 nama_lengkap: currentEmp.nama,
@@ -241,9 +286,10 @@
                 tanggal: ymd,
                 jam_masuk: masuk,
                 jam_pulang: pulang,
-                status_kehadiran: 'Hadir',
-                keterangan: 'Import Rekap Mesin Presensi'
+                status_kehadiran: detectedStatus || 'Hadir',
+                keterangan: detectedStatus ? `${detectedStatus} (Import Mesin Presensi)` : 'Import Rekap Mesin Presensi'
               });
+              results.push(rawRec);
             }
           }
         }
@@ -316,7 +362,7 @@
       const status = colMap.status != null && row[colMap.status] ? String(row[colMap.status]).trim() : 'Hadir';
       const ket = colMap.keterangan != null && row[colMap.keterangan] ? String(row[colMap.keterangan]).trim() : 'Import Tabular';
 
-      results.push({
+      results.push(normalizeImportedRecord({
         id: Date.now() + results.length + Math.floor(Math.random() * 1000),
         nip,
         nama_lengkap: nama,
@@ -326,7 +372,7 @@
         jam_pulang: pulang,
         status_kehadiran: status,
         keterangan: ket
-      });
+      }));
     }
 
     return results;
@@ -390,6 +436,13 @@
     const previewRows = data.slice(0, 10);
 
     tbody.innerHTML = previewRows.map((r, i) => {
+      const isNonTimed = r.status_kehadiran && r.status_kehadiran !== 'Hadir';
+      const masukCell = isNonTimed
+        ? `<span style="color:#64748B; font-size:0.72rem;">— (${escapeHtml(r.status_kehadiran)})</span>`
+        : `<code>${r.jam_masuk || '-'}</code>`;
+      const pulangCell = isNonTimed
+        ? `<span style="color:#64748B; font-size:0.72rem;">—</span>`
+        : `<code>${r.jam_pulang || '-'}</code>`;
       return `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
@@ -397,8 +450,8 @@
           <td>${escapeHtml(r.nip)}</td>
           <td><strong>${escapeHtml(r.nama_lengkap)}</strong></td>
           <td><small>${escapeHtml(r.unit_kerja)}</small></td>
-          <td style="text-align:center;"><code>${r.jam_masuk || '-'}</code></td>
-          <td style="text-align:center;"><code>${r.jam_pulang || '-'}</code></td>
+          <td style="text-align:center;">${masukCell}</td>
+          <td style="text-align:center;">${pulangCell}</td>
         </tr>
       `;
     }).join('');
@@ -452,15 +505,17 @@
       stagedImportData.forEach(item => {
         const key = `${item.nip}|${item.tanggal}`;
         if (keyMap.has(key)) {
-          // Perbarui data yang sudah ada (misal revisi jam tap atau status izin/cuti)
+          // Perbarui data yang sudah ada (misal revisi jam tap atau status lembur/izin/cuti/sakit/dinas)
           const idx = keyMap.get(key);
-          const mergedItem = {
+          const nextStatus = item.status_kehadiran || combined[idx].status_kehadiran || 'Hadir';
+          const isNextNonTimed = isWeekendYmd(item.tanggal) || nextStatus !== 'Hadir';
+          const mergedItem = normalizeImportedRecord({
             ...combined[idx],
-            jam_masuk: item.jam_masuk !== null ? item.jam_masuk : combined[idx].jam_masuk,
-            jam_pulang: item.jam_pulang !== null ? item.jam_pulang : combined[idx].jam_pulang,
-            status_kehadiran: item.status_kehadiran || combined[idx].status_kehadiran,
+            jam_masuk: isNextNonTimed ? null : (item.jam_masuk !== null ? item.jam_masuk : combined[idx].jam_masuk),
+            jam_pulang: isNextNonTimed ? null : (item.jam_pulang !== null ? item.jam_pulang : combined[idx].jam_pulang),
+            status_kehadiran: nextStatus,
             keterangan: item.keterangan || combined[idx].keterangan
-          };
+          });
           combined[idx] = mergedItem;
           deltaRows.push(mergedItem);
           updated++;
