@@ -1154,7 +1154,7 @@
           <span class="badge-status badge-warning" style="font-size:0.7rem;">0 Data</span>
         </div>
         <div style="margin-top:4px; font-size:0.76rem; color:var(--text-muted);">
-          Silakan tambahkan presensi atau impor berkas Excel terlebih dahulu untuk periode ini.
+          Silakan tambahkan presensi, impor berkas Excel, atau klik <strong>Template Rekap Resmi (.xlsx)</strong> di bawah untuk mengunduh template siap isi berdesain standar UT.
         </div>
       `;
       return;
@@ -1202,8 +1202,11 @@
       ? window.app.getPegawaiList()
       : (window.INITIAL_FHISIP_DATA ? window.INITIAL_FHISIP_DATA.pegawai : []);
 
+    const isBlankTemplate = Boolean(options.isBlankTemplate);
+    const effectiveRecords = isBlankTemplate ? [] : records;
+
     // Tentukan rentang tanggal laporan
-    const dates = [...new Set(records.map(a => (a.tanggal || '').slice(0, 10)).filter(Boolean))].sort();
+    const dates = [...new Set(effectiveRecords.map(a => (a.tanggal || '').slice(0, 10)).filter(Boolean))].sort();
     const fallbackYear = Number(options.year) || 2026;
     const fallbackMonth = Number(options.month) || 10;
     const fallbackYm = `${fallbackYear}-${String(fallbackMonth).padStart(2, '0')}`;
@@ -1252,7 +1255,7 @@
     }
 
     // Agregasi catatan presensi live dari Dashboard
-    for (const r of records) {
+    for (const r of effectiveRecords) {
       if (!r || !r.nip) continue;
       const nipKey = canonicalizeNip(r.nip);
       if (!nipKey) continue;
@@ -1302,9 +1305,11 @@
 
     // Filter pegawai yang aktif pada data laporan (serta pegawai Tugas Belajar jika laporan bulanan penuh)
     const includeTugasBelajar = !options.onlyMatchedEmployees;
-    let activeEmps = Array.from(empMap.values()).filter(
-      e => e.hasAnyRecord || (includeTugasBelajar && e.tugasBelajar && records.length > 0)
-    );
+    let activeEmps = isBlankTemplate
+      ? Array.from(empMap.values())
+      : Array.from(empMap.values()).filter(
+          e => e.hasAnyRecord || (includeTugasBelajar && e.tugasBelajar && effectiveRecords.length > 0)
+        );
 
     if (activeEmps.length === 0 && !options.onlyMatchedEmployees) {
       activeEmps = Array.from(empMap.values());
@@ -1312,6 +1317,23 @@
 
     // Finalisasi perhitungan Normal, Riil, Absen, D.Luar, Cuti, Sakit, Ijin per pegawai
     for (const emp of activeEmps) {
+      if (isBlankTemplate) {
+        emp.tugasBelajar = false;
+        emp.riilDays = emp.normalDays;
+        emp.absenDays = 0;
+        emp.terlambat = 0;
+        emp.pulangCepat = 0;
+        emp.lembur = 0;
+        emp.tanpaKeterangan = 0;
+        emp.dinasLuar = 0;
+        emp.sakit = 0;
+        emp.cuti = 0;
+        emp.izin = 0;
+        emp.specialNotes = [];
+        emp.adminNotes = [];
+        continue;
+      }
+
       const riilDays = Math.min(emp.normalDays, emp.hadirDates.size);
       const absenDays = Math.max(0, emp.normalDays - riilDays);
 
@@ -1647,14 +1669,42 @@
 
     window.XLSX.utils.book_append_sheet(wb, ws, 'Rekap ');
 
+    // Bangun berkas OpenXML (.xlsx) berdesain penuh (Times New Roman 10pt, border penuh,
+    // drawing1.xml kop, Page Break Preview 120%, Print Titles $10:$11, Landscape A4)
+    let xlsxBytes = null;
+    if (window.fhisipXlsxTemplateEngine && typeof window.fhisipXlsxTemplateEngine.buildOfficialRecapXlsxBytes === 'function') {
+      const activeCountWithNormal = activeEmps.filter(e => (e.normalDays || 0) > 0).length;
+      xlsxBytes = window.fhisipXlsxTemplateEngine.buildOfficialRecapXlsxBytes({
+        headerSubtitle,
+        periodeStr,
+        sectionBlocks,
+        activeEmpsCount: activeCountWithNormal,
+        printDateSlash,
+        dateDekanStr,
+        isBlankTemplate,
+        extraLogRows: Array.isArray(options.extraLogRows) && options.extraLogRows.length > 0 ? options.extraLogRows : null
+      });
+    }
+
     return {
       wb,
-      recordCount: records.length,
+      xlsxBytes,
+      recordCount: effectiveRecords.length,
       employeeCount: activeEmps.length,
       sectionCount: sectionBlocks.length,
       startDate,
       endDate
     };
+  }
+
+  /**
+   * Mengambil payload biner OpenXML (.xlsx) berdesain resmi (atau fallback SheetJS)
+   */
+  function getXlsxPayloadBytes(built) {
+    if (built && built.xlsxBytes instanceof Uint8Array && built.xlsxBytes.length > 0) {
+      return built.xlsxBytes;
+    }
+    return window.XLSX.write(built.wb, { bookType: 'xlsx', type: 'array' });
   }
 
   /**
@@ -1701,7 +1751,7 @@
   }
 
   /**
-   * Ekspor Laporan Rekapitulasi Bulanan Resmi (.xlsx) sesuai contoh format standar UT
+   * Ekspor Laporan Rekapitulasi Bulanan Resmi (.xlsx) sesuai contoh format & desain standar UT
    */
   function exportMonthlyExcel(options = {}) {
     const month = Number(options.month) || 10;
@@ -1715,7 +1765,7 @@
       const built = buildMonthlyWorkbook({ ...options, year, month, groupBy });
       if (!built || !built.wb) return;
 
-      const wbout = window.XLSX.write(built.wb, { bookType: 'xlsx', type: 'array' });
+      const wbout = getXlsxPayloadBytes(built);
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
       triggerDownload(url, filename);
@@ -1730,6 +1780,69 @@
     } catch (e) {
       console.error('Gagal menulis berkas XLSX:', e);
       alert('Gagal menghasilkan berkas Excel: ' + e.message);
+    }
+  }
+
+  /**
+   * Ekspor Template Kosong Siap Isi Laporan Rekapitulasi Bulanan Resmi (.xlsx)
+   * Lengkap dengan desain visual standar UT, daftar pegawai biometrik, dan rumus Excel otomatis
+   */
+  function exportMonthlyTemplateExcel(options = {}) {
+    const menuExport = document.getElementById('menu-export');
+    if (menuExport && typeof menuExport.hidePopover === 'function') {
+      try { menuExport.hidePopover(); } catch (_) {}
+    }
+    const menuData = document.getElementById('menu-data');
+    if (menuData && typeof menuData.hidePopover === 'function') {
+      try { menuData.hidePopover(); } catch (_) {}
+    }
+
+    let year = Number(options.year);
+    let month = Number(options.month);
+    if (!year || !month) {
+      const selectEl = document.getElementById('export-month-select');
+      if (selectEl && selectEl.value && /^\d{4}-\d{2}$/.test(selectEl.value)) {
+        const parts = selectEl.value.split('-').map(Number);
+        year = year || parts[0];
+        month = month || parts[1];
+      }
+    }
+    year = year || 2026;
+    month = month || 11;
+
+    const groupBy = options.groupBy || 'kategori';
+    const namaBulan = MONTH_NAMES[month - 1];
+    const modeSuffix = groupBy === 'prodi' ? '_Per_Prodi' : '_Resmi';
+    const filename = options.genericFilename
+      ? 'Template_Rekapitulasi_Kehadiran_FHISIP_Resmi.xlsx'
+      : `Template_Rekapitulasi_Kehadiran_FHISIP_${namaBulan}_${year}${modeSuffix}.xlsx`;
+
+    try {
+      const built = buildRecapWorkbookFromRecords([], {
+        ...options,
+        year,
+        month,
+        groupBy,
+        isBlankTemplate: true,
+        headerSubtitle: `(FHISIP ${namaBulan} ${year})`
+      });
+      if (!built || !built.wb) return;
+
+      const wbout = getXlsxPayloadBytes(built);
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      triggerDownload(url, filename);
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+
+      if (window.app && window.app.showToast) {
+        window.app.showToast(
+          `Template Rekapitulasi Resmi ${namaBulan} ${year} (${built.employeeCount} pegawai • rumus otomatis siap isi) berhasil diunduh!`,
+          'success'
+        );
+      }
+    } catch (e) {
+      console.error('Gagal menulis template XLSX:', e);
+      alert('Gagal menghasilkan berkas Template Excel: ' + e.message);
     }
   }
 
@@ -1767,7 +1880,7 @@
     });
     if (!built || !built.wb) return;
 
-    const wbout = window.XLSX.write(built.wb, { bookType: 'xlsx', type: 'array' });
+    const wbout = getXlsxPayloadBytes(built);
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const todayStr = new Date().toISOString().slice(0, 10);
@@ -1817,14 +1930,6 @@
       }
     }
 
-    // Sheet 1: Format Laporan Rekapitulasi Terolah (persis contoh resmi)
-    const built = buildRecapWorkbookFromRecords(evaluated, {
-      groupBy: 'kategori',
-      headerSubtitle: subtitle
-    });
-    if (!built || !built.wb) return;
-    const wb = built.wb;
-
     // Sheet 2: Log Harian Lengkap agar data mentah tetap tersedia bila dibutuhkan
     const logRows = evaluated
       .slice()
@@ -1854,6 +1959,15 @@
         };
       });
 
+    // Sheet 1: Format Laporan Rekapitulasi Terolah berdesain resmi + Sheet 2 Log Presensi Live
+    const built = buildRecapWorkbookFromRecords(evaluated, {
+      groupBy: 'kategori',
+      headerSubtitle: subtitle,
+      extraLogRows: logRows
+    });
+    if (!built || !built.wb) return;
+    const wb = built.wb;
+
     if (logRows.length > 0) {
       const wsLog = window.XLSX.utils.json_to_sheet(logRows);
       wsLog['!cols'] = [
@@ -1864,7 +1978,7 @@
       window.XLSX.utils.book_append_sheet(wb, wsLog, 'Log Presensi Live');
     }
 
-    const wbout = window.XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const wbout = getXlsxPayloadBytes(built);
     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
 
@@ -1925,6 +2039,7 @@
     buildRecapWorkbookFromRecords,
     buildMonthlyWorkbook,
     exportMonthlyExcel,
+    exportMonthlyTemplateExcel,
     exportMonthlyCsv,
     exportFilteredRecapExcel,
     exportLiveDatabaseXlsx,
