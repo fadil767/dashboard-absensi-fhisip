@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.5">
+  <link rel="stylesheet" href="css/style.css?v=2.6">
 </head>
 <body>
 
@@ -647,11 +647,11 @@
   <!-- =====================================================================
        MODAL 1: TAMBAH DATA PRESENSI BARU
        ===================================================================== -->
-  <div class="modal-overlay" id="modal-tambah" role="dialog" aria-modal="true">
-    <div class="modal-card">
+  <div class="modal-overlay" id="modal-tambah" role="dialog" aria-modal="true" aria-labelledby="modal-tambah-title">
+    <div class="modal-card modal-card-tambah">
       <div class="modal-header">
-        <h3>➕ Tambah Presensi Pegawai</h3>
-        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-tambah')">&times;</button>
+        <h3 id="modal-tambah-title">➕ Tambah Presensi Pegawai</h3>
+        <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-tambah')" aria-label="Tutup">&times;</button>
       </div>
       <form id="form-tambah-presensi">
         <div class="modal-body">
@@ -663,8 +663,83 @@
           </div>
 
           <div class="form-group">
-            <label for="modal-tambah-tanggal">Tanggal Presensi *</label>
-            <input type="date" id="modal-tambah-tanggal" class="form-control" value="2026-10-20" required>
+            <div class="date-range-label-row">
+              <label for="tambah-date-trigger">Tanggal / Rentang Presensi *</label>
+              <span class="date-drag-tip-pill">🖱️ Bisa Drag Tanggal (Misal 1–5)</span>
+            </div>
+
+            <button type="button" id="tambah-date-trigger" class="date-range-trigger" aria-expanded="false" aria-controls="tambah-calendar-panel">
+              <span class="date-range-trigger-main">
+                <svg class="date-trigger-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <span id="tambah-date-display-text">Memuat tanggal...</span>
+              </span>
+              <span class="date-range-trigger-meta">
+                <span id="tambah-date-count-badge" class="date-range-count-badge">1 Hari</span>
+                <svg class="date-trigger-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </span>
+            </button>
+
+            <!-- Panel Kalender Interaktif (Klik 1 Tanggal atau Tahan & Drag Rentang Tanggal) -->
+            <div id="tambah-calendar-panel" class="drag-calendar-panel" hidden>
+              <div class="drag-calendar-header">
+                <div class="drag-cal-nav-group">
+                  <button type="button" id="cal-prev-month" class="cal-nav-btn" aria-label="Bulan sebelumnya" title="Bulan sebelumnya">&#8249;</button>
+                  <strong id="cal-month-label" class="cal-month-label">Oktober 2026</strong>
+                  <button type="button" id="cal-next-month" class="cal-nav-btn" aria-label="Bulan berikutnya" title="Bulan berikutnya">&#8250;</button>
+                </div>
+                <div class="drag-cal-quick-group">
+                  <button type="button" id="cal-btn-today" class="cal-quick-btn">Hari Ini</button>
+                  <button type="button" id="cal-btn-single" class="cal-quick-btn cal-quick-btn-reset" style="display:none;">1 Hari Saja</button>
+                </div>
+              </div>
+
+              <div class="drag-calendar-hint">
+                <span>🖱️ Klik 1 tanggal, atau <strong>tahan &amp; geser (drag)</strong> pada angka tanggal (misal <strong>1 s/d 5</strong>) untuk rentang Cuti/Izin.</span>
+              </div>
+
+              <div class="drag-calendar-weekdays" aria-hidden="true">
+                <span class="is-wknd">Min</span>
+                <span>Sen</span>
+                <span>Sel</span>
+                <span>Rab</span>
+                <span>Kam</span>
+                <span>Jum</span>
+                <span class="is-wknd">Sab</span>
+              </div>
+
+              <div id="tambah-calendar-grid" class="drag-calendar-grid" role="grid" aria-label="Kalender pilih atau drag rentang tanggal presensi"></div>
+
+              <div class="drag-calendar-inputs-row">
+                <div class="drag-cal-input-box">
+                  <label for="modal-tambah-tanggal">Dari Tanggal</label>
+                  <input type="date" id="modal-tambah-tanggal" class="form-control form-control-sm" value="2026-10-20" required>
+                </div>
+                <span class="drag-cal-arrow" aria-hidden="true">&rarr;</span>
+                <div class="drag-cal-input-box">
+                  <label for="modal-tambah-tanggal-akhir">Sampai Tanggal</label>
+                  <input type="date" id="modal-tambah-tanggal-akhir" class="form-control form-control-sm" value="2026-10-20">
+                </div>
+              </div>
+
+              <div id="tambah-weekend-option-row" class="drag-calendar-weekend-row" style="display:none;">
+                <label class="weekend-skip-label" for="modal-tambah-skip-weekend">
+                  <input type="checkbox" id="modal-tambah-skip-weekend" checked>
+                  <span>Lewati hari <strong>Sabtu &amp; Minggu</strong> <em id="tambah-weekend-skip-detail">(hanya simpan hari kerja)</em></span>
+                </label>
+              </div>
+
+              <div class="drag-calendar-footer">
+                <span id="cal-selection-summary" class="cal-selection-summary">1 tanggal dipilih</span>
+                <button type="button" id="cal-btn-done" class="cal-done-btn">Selesai Pilih &#10003;</button>
+              </div>
+            </div>
           </div>
 
           <div class="form-group">
@@ -695,13 +770,13 @@
 
           <div class="form-group">
             <label for="modal-tambah-keterangan">Keterangan / Catatan</label>
-            <input type="text" id="modal-tambah-keterangan" class="form-control" placeholder="Contoh: Lembur Akhir Pekan, Surat Sakit, Tugas ke UT Daerah">
+            <input type="text" id="modal-tambah-keterangan" class="form-control" placeholder="Contoh: Cuti Tahunan 1-5 Okt, Surat Sakit, Tugas ke UT Daerah">
           </div>
         </div>
 
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-tambah')">Batal</button>
-          <button type="submit" class="btn btn-primary">Simpan Presensi</button>
+          <button type="submit" id="btn-submit-tambah" class="btn btn-primary">Simpan Presensi</button>
         </div>
       </form>
     </div>
@@ -1282,13 +1357,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js?v=2.5"></script>
-  <script src="js/storage-manager.js?v=2.5"></script>
-  <script src="js/excel-import.js?v=2.5"></script>
-  <script src="js/excel-monthly-report.js?v=2.5"></script>
-  <script src="js/pdf-export.js?v=2.5"></script>
-  <script src="js/supabase-client.js?v=2.5"></script>
-  <script src="js/app.js?v=2.5"></script>
+  <script src="js/data-fhisip.js?v=2.6"></script>
+  <script src="js/storage-manager.js?v=2.6"></script>
+  <script src="js/excel-import.js?v=2.6"></script>
+  <script src="js/excel-monthly-report.js?v=2.6"></script>
+  <script src="js/pdf-export.js?v=2.6"></script>
+  <script src="js/supabase-client.js?v=2.6"></script>
+  <script src="js/app.js?v=2.6"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.updateSelectedMonthPreview === 'function') {

@@ -44,9 +44,68 @@
     lastFilteredRecords: [],
     editingRecordId: null,
     autoSetLemburTambah: false,
+    tambahCalendar: {
+      viewYear: 2026,
+      viewMonth: 9, // 0 = Januari, 9 = Oktober
+      startYmd: '',
+      endYmd: '',
+      isOpen: false,
+      isDragging: false,
+      dragAnchorYmd: '',
+      lastHoverYmd: '',
+      userToggledSkipWeekend: false
+    },
     liveHighlights: new Map(), // key: nip|tanggal -> { seq, actorName, label, timestamp }
     liveSeqCounter: 0
   };
+
+  const MONTH_NAMES_ID = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ];
+
+  function getTodayLocalIso() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
+  function parseYmdParts(ymd) {
+    if (!ymd || typeof ymd !== 'string') return null;
+    const parts = ymd.trim().slice(0, 10).split('-').map(Number);
+    if (parts.length !== 3 || parts.some(isNaN)) return null;
+    const [y, m, d] = parts;
+    if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+    return { y, m, d };
+  }
+
+  function formatYmdParts(y, m, d) {
+    const dt = new Date(y, m - 1, d);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  }
+
+  function addDaysToYmd(ymd, deltaDays) {
+    const p = parseYmdParts(ymd);
+    if (!p) return getTodayLocalIso();
+    return formatYmdParts(p.y, p.m, p.d + deltaDays);
+  }
+
+  function enumerateDatesInclusive(startYmd, endYmd, maxDays = 62) {
+    if (!parseYmdParts(startYmd)) return { dates: [], truncated: false };
+    if (!parseYmdParts(endYmd)) return { dates: [startYmd], truncated: false };
+    const s = startYmd <= endYmd ? startYmd : endYmd;
+    const e = startYmd <= endYmd ? endYmd : startYmd;
+    const dates = [];
+    let cur = s;
+    let guard = 0;
+    while (cur <= e && guard < maxDays) {
+      dates.push(cur);
+      if (cur === e) break;
+      cur = addDaysToYmd(cur, 1);
+      guard++;
+    }
+    const truncated = cur < e;
+    return { dates, truncated };
+  }
 
   // Status kehadiran yang TIDAK menggunakan jam masuk & jam pulang
   const NON_TIMED_STATUS_SET = new Set([
@@ -143,14 +202,9 @@
     evaluateAndRender();
     initMultiTabSync();
 
-    // Set default tanggal tambah ke hari ini (waktu lokal) & sinkronkan status Sabtu-Minggu/Tanpa Jam
-    const elTambahTanggal = document.getElementById('modal-tambah-tanggal');
-    if (elTambahTanggal) {
-      const now = new Date();
-      const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      elTambahTanggal.value = todayIso;
-      syncModalTimeFields('tambah', 'date');
-    }
+    // Set default tanggal tambah ke hari ini (waktu lokal) & inisialisasi Kalender Drag Rentang
+    const todayIso = getTodayLocalIso();
+    setTambahDateRange(todayIso, todayIso, { syncTimeFields: true, keepCalendarMonth: false });
 
     // Aktifkan Live Multi-Device Sync (Supabase Cloud Realtime)
     if (window.supabaseSync && typeof window.supabaseSync.initLiveSync === 'function') {
@@ -490,11 +544,6 @@
   // ==========================================================================
   // RENDER & RECALCULATION PIPELINE
   // ==========================================================================
-  const MONTH_NAMES_ID = [
-    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
-
   function formatPeriodLabel(ym) {
     if (!ym || ym === 'all') return 'Semua Periode';
     const parts = String(ym).split('-').map(Number);
@@ -1606,17 +1655,15 @@
       });
     }
 
-    // Form Tambah Presensi & Reaktivitas Tanggal Sabtu-Minggu / Status Tanpa Jam
+    // Form Tambah Presensi & Kalender Interaktif Drag Rentang Tanggal
     const formTambah = document.getElementById('form-tambah-presensi');
     if (formTambah) {
       formTambah.addEventListener('submit', handleTambahPresensi);
     }
 
-    const elTambahTanggal = document.getElementById('modal-tambah-tanggal');
+    bindTambahCalendarEvents();
+
     const elTambahStatus = document.getElementById('modal-tambah-status');
-    if (elTambahTanggal) {
-      elTambahTanggal.addEventListener('change', () => syncModalTimeFields('tambah', 'date'));
-    }
     if (elTambahStatus) {
       elTambahStatus.addEventListener('change', () => syncModalTimeFields('tambah', 'status'));
     }
@@ -1632,9 +1679,15 @@
       elEditStatus.addEventListener('change', () => syncModalTimeFields('edit', 'status'));
     }
 
-    // Tutup modal aktif dengan tombol Escape (Aksesibilitas Keyboard)
+    // Tutup panel kalender atau modal aktif dengan tombol Escape (Aksesibilitas Keyboard)
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
+        if (state.tambahCalendar.isOpen) {
+          setTambahCalendarOpen(false);
+          const trigger = document.getElementById('tambah-date-trigger');
+          if (trigger) trigger.focus();
+          return;
+        }
         document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
       }
     });
@@ -1676,6 +1729,458 @@
   }
 
   // ==========================================================================
+  // INTERACTIVE DRAG-RANGE CALENDAR PICKER (MODAL TAMBAH PRESENSI)
+  // ==========================================================================
+  function setTambahCalendarOpen(open) {
+    const panel = document.getElementById('tambah-calendar-panel');
+    const trigger = document.getElementById('tambah-date-trigger');
+    state.tambahCalendar.isOpen = Boolean(open);
+    if (panel) {
+      if (state.tambahCalendar.isOpen) {
+        panel.removeAttribute('hidden');
+        renderTambahCalendarGrid();
+      } else {
+        panel.setAttribute('hidden', '');
+      }
+    }
+    if (trigger) {
+      trigger.setAttribute('aria-expanded', state.tambahCalendar.isOpen ? 'true' : 'false');
+    }
+  }
+
+  function syncCalendarViewToYmd(ymd) {
+    const p = parseYmdParts(ymd);
+    if (!p) return;
+    state.tambahCalendar.viewYear = p.y;
+    state.tambahCalendar.viewMonth = p.m - 1;
+  }
+
+  function getTambahRangeInfo() {
+    const elStart = document.getElementById('modal-tambah-tanggal');
+    const elEnd = document.getElementById('modal-tambah-tanggal-akhir');
+    const elStatus = document.getElementById('modal-tambah-status');
+    const elSkip = document.getElementById('modal-tambah-skip-weekend');
+
+    const fallback = getTodayLocalIso();
+    let rawStart = state.tambahCalendar.startYmd || (elStart && elStart.value) || fallback;
+    let rawEnd = state.tambahCalendar.endYmd || (elEnd && elEnd.value) || rawStart;
+
+    if (!parseYmdParts(rawStart)) rawStart = fallback;
+    if (!parseYmdParts(rawEnd)) rawEnd = rawStart;
+
+    const start = rawStart <= rawEnd ? rawStart : rawEnd;
+    const end = rawStart <= rawEnd ? rawEnd : rawStart;
+    const isRange = start !== end;
+
+    const { dates: allDates, truncated } = enumerateDatesInclusive(start, end, 62);
+    const weekendDates = allDates.filter(isWeekendDate);
+    const weekdayDates = allDates.filter(d => !isWeekendDate(d));
+    const allWeekendOnly = allDates.length > 0 && weekdayDates.length === 0;
+
+    const statusVal = normalizeStatusValue(elStatus ? elStatus.value : 'Hadir');
+    const skipChecked = Boolean(elSkip ? elSkip.checked : true);
+    const skipWeekend = Boolean(
+      isRange &&
+      weekendDates.length > 0 &&
+      weekdayDates.length > 0 &&
+      skipChecked &&
+      statusVal !== 'Lembur'
+    );
+
+    const effectiveDates = !isRange
+      ? [start]
+      : (skipWeekend ? weekdayDates : allDates);
+
+    return {
+      start,
+      end,
+      isRange,
+      allDates,
+      weekendDates,
+      weekdayDates,
+      allWeekendOnly,
+      skipChecked,
+      skipWeekend,
+      effectiveDates,
+      truncated,
+      statusVal
+    };
+  }
+
+  function setTambahDateRange(startYmd, endYmd, options = {}) {
+    const fallback = getTodayLocalIso();
+    const validS = parseYmdParts(startYmd) ? startYmd.trim().slice(0, 10) : fallback;
+    const validE = parseYmdParts(endYmd) ? endYmd.trim().slice(0, 10) : validS;
+
+    const start = validS <= validE ? validS : validE;
+    const end = validS <= validE ? validE : validS;
+
+    state.tambahCalendar.startYmd = start;
+    state.tambahCalendar.endYmd = end;
+
+    const elStart = document.getElementById('modal-tambah-tanggal');
+    const elEnd = document.getElementById('modal-tambah-tanggal-akhir');
+    if (elStart && document.activeElement !== elStart) elStart.value = start;
+    if (elEnd && document.activeElement !== elEnd) elEnd.value = end;
+
+    if (!options.keepCalendarMonth) {
+      syncCalendarViewToYmd(start);
+      renderTambahCalendarGrid();
+    } else {
+      const grid = document.getElementById('tambah-calendar-grid');
+      if (grid && grid.children.length === 0) {
+        renderTambahCalendarGrid();
+      } else {
+        refreshTambahCalendarSelectionUI();
+      }
+    }
+
+    if (options.syncTimeFields !== false) {
+      syncModalTimeFields('tambah', 'date');
+    }
+  }
+
+  function renderTambahCalendarGrid() {
+    const grid = document.getElementById('tambah-calendar-grid');
+    const monthLabel = document.getElementById('cal-month-label');
+    if (!grid) return;
+
+    const year = state.tambahCalendar.viewYear;
+    const month = state.tambahCalendar.viewMonth; // 0..11
+    if (monthLabel) {
+      monthLabel.textContent = `${MONTH_NAMES_ID[month] || ''} ${year}`;
+    }
+
+    const firstDayDow = new Date(year, month, 1).getDay(); // 0 = Minggu
+    const todayIso = getTodayLocalIso();
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < 42; i++) {
+      const cellDate = new Date(year, month, 1 - firstDayDow + i);
+      const cy = cellDate.getFullYear();
+      const cm = cellDate.getMonth();
+      const cd = cellDate.getDate();
+      const ymd = `${cy}-${String(cm + 1).padStart(2, '0')}-${String(cd).padStart(2, '0')}`;
+      const dow = cellDate.getDay();
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'cal-day-btn';
+      btn.dataset.ymd = ymd;
+      btn.textContent = String(cd);
+      btn.setAttribute('aria-label', formatTanggalIndo(ymd));
+
+      if (cm !== month) btn.classList.add('is-outside-month');
+      if (dow === 0 || dow === 6) btn.classList.add('is-weekend');
+      if (ymd === todayIso) btn.classList.add('is-today');
+
+      fragment.appendChild(btn);
+    }
+
+    grid.innerHTML = '';
+    grid.appendChild(fragment);
+    refreshTambahCalendarSelectionUI();
+  }
+
+  function refreshTambahCalendarSelectionUI() {
+    const info = getTambahRangeInfo();
+    const grid = document.getElementById('tambah-calendar-grid');
+
+    if (grid) {
+      const buttons = grid.querySelectorAll('.cal-day-btn[data-ymd]');
+      buttons.forEach(btn => {
+        const ymd = btn.dataset.ymd;
+        const inRange = ymd >= info.start && ymd <= info.end;
+        const isStart = ymd === info.start;
+        const isEnd = ymd === info.end;
+        const isSkippedWknd = inRange && info.skipWeekend && isWeekendDate(ymd);
+
+        btn.classList.toggle('is-in-range', inRange);
+        btn.classList.toggle('is-range-start', isStart);
+        btn.classList.toggle('is-range-end', isEnd);
+        btn.classList.toggle('is-skipped-weekend', isSkippedWknd);
+        btn.setAttribute('aria-pressed', inRange ? 'true' : 'false');
+      });
+    }
+
+    const elDisplayText = document.getElementById('tambah-date-display-text');
+    const elCountBadge = document.getElementById('tambah-date-count-badge');
+    const elBtnSingle = document.getElementById('cal-btn-single');
+    const elWeekendRow = document.getElementById('tambah-weekend-option-row');
+    const elWeekendDetail = document.getElementById('tambah-weekend-skip-detail');
+    const elSummary = document.getElementById('cal-selection-summary');
+    const elBtnSubmit = document.getElementById('btn-submit-tambah');
+
+    if (elDisplayText) {
+      elDisplayText.textContent = info.isRange
+        ? `${formatTanggalIndo(info.start)} – ${formatTanggalIndo(info.end)}`
+        : formatTanggalIndo(info.start);
+    }
+
+    const effCount = info.effectiveDates.length;
+    if (elCountBadge) {
+      elCountBadge.textContent = info.isRange
+        ? `${effCount} Hari${info.skipWeekend ? ' Kerja' : ''}`
+        : '1 Hari';
+      elCountBadge.classList.toggle('is-multi', info.isRange);
+    }
+
+    if (elBtnSingle) {
+      elBtnSingle.style.display = info.isRange ? 'inline-flex' : 'none';
+    }
+
+    if (elWeekendRow) {
+      const showWeekendToggle = info.isRange && info.weekendDates.length > 0 && info.weekdayDates.length > 0 && info.statusVal !== 'Lembur';
+      elWeekendRow.style.display = showWeekendToggle ? 'block' : 'none';
+      if (showWeekendToggle && elWeekendDetail) {
+        elWeekendDetail.textContent = info.skipChecked
+          ? `(simpan ${info.weekdayDates.length} hari kerja, lewati ${info.weekendDates.length} Sabtu/Minggu)`
+          : `(termasuk ${info.weekendDates.length} Sabtu/Minggu — total ${info.allDates.length} hari)`;
+      }
+    }
+
+    if (elSummary) {
+      if (!info.isRange) {
+        elSummary.textContent = `1 tanggal dipilih (${formatTanggalIndo(info.start)})`;
+      } else if (info.skipWeekend) {
+        elSummary.textContent = `${effCount} hari kerja disimpan (${info.weekendDates.length} akhir pekan dilewati)`;
+      } else {
+        elSummary.textContent = `${effCount} hari berturut-turut dipilih`;
+      }
+    }
+
+    if (elBtnSubmit) {
+      elBtnSubmit.textContent = effCount > 1
+        ? `Simpan ${effCount} Hari ${info.statusVal}`
+        : 'Simpan Presensi';
+    }
+  }
+
+  function bindTambahCalendarEvents() {
+    const trigger = document.getElementById('tambah-date-trigger');
+    const tipPill = document.querySelector('.date-drag-tip-pill');
+    const btnPrev = document.getElementById('cal-prev-month');
+    const btnNext = document.getElementById('cal-next-month');
+    const btnToday = document.getElementById('cal-btn-today');
+    const btnSingle = document.getElementById('cal-btn-single');
+    const btnDone = document.getElementById('cal-btn-done');
+    const grid = document.getElementById('tambah-calendar-grid');
+    const elStart = document.getElementById('modal-tambah-tanggal');
+    const elEnd = document.getElementById('modal-tambah-tanggal-akhir');
+    const elSkip = document.getElementById('modal-tambah-skip-weekend');
+
+    if (trigger) {
+      trigger.addEventListener('click', () => {
+        setTambahCalendarOpen(!state.tambahCalendar.isOpen);
+      });
+    }
+
+    if (tipPill) {
+      tipPill.style.cursor = 'pointer';
+      tipPill.addEventListener('click', () => {
+        setTambahCalendarOpen(true);
+      });
+    }
+
+    if (btnPrev) {
+      btnPrev.addEventListener('click', () => {
+        let m = state.tambahCalendar.viewMonth - 1;
+        let y = state.tambahCalendar.viewYear;
+        if (m < 0) { m = 11; y -= 1; }
+        state.tambahCalendar.viewMonth = m;
+        state.tambahCalendar.viewYear = y;
+        renderTambahCalendarGrid();
+      });
+    }
+
+    if (btnNext) {
+      btnNext.addEventListener('click', () => {
+        let m = state.tambahCalendar.viewMonth + 1;
+        let y = state.tambahCalendar.viewYear;
+        if (m > 11) { m = 0; y += 1; }
+        state.tambahCalendar.viewMonth = m;
+        state.tambahCalendar.viewYear = y;
+        renderTambahCalendarGrid();
+      });
+    }
+
+    if (btnToday) {
+      btnToday.addEventListener('click', () => {
+        const todayIso = getTodayLocalIso();
+        state.tambahCalendar.dragAnchorYmd = todayIso;
+        setTambahDateRange(todayIso, todayIso, { syncTimeFields: true, keepCalendarMonth: false });
+      });
+    }
+
+    if (btnSingle) {
+      btnSingle.addEventListener('click', () => {
+        const s = state.tambahCalendar.startYmd || getTodayLocalIso();
+        state.tambahCalendar.dragAnchorYmd = s;
+        setTambahDateRange(s, s, { syncTimeFields: true, keepCalendarMonth: false });
+      });
+    }
+
+    if (btnDone) {
+      btnDone.addEventListener('click', () => {
+        setTambahCalendarOpen(false);
+      });
+    }
+
+    if (elSkip) {
+      elSkip.addEventListener('change', () => {
+        state.tambahCalendar.userToggledSkipWeekend = true;
+        syncModalTimeFields('tambah', 'weekend_toggle');
+      });
+    }
+
+    if (elStart) {
+      elStart.addEventListener('change', () => {
+        const s = elStart.value;
+        if (!parseYmdParts(s)) return;
+        let e = (elEnd && parseYmdParts(elEnd.value)) ? elEnd.value : s;
+        // Jika rentang sebelumnya 1 hari, geser akhir mengikuti awal; jika awal > akhir, sesuaikan akhir
+        if (!state.tambahCalendar.endYmd || state.tambahCalendar.startYmd === state.tambahCalendar.endYmd || s > e) {
+          e = s;
+          if (elEnd) elEnd.value = e;
+        }
+        state.tambahCalendar.dragAnchorYmd = s;
+        setTambahDateRange(s, e, { syncTimeFields: true, keepCalendarMonth: false });
+      });
+    }
+
+    if (elEnd) {
+      elEnd.addEventListener('change', () => {
+        const e = elEnd.value;
+        if (!parseYmdParts(e)) return;
+        let s = (elStart && parseYmdParts(elStart.value)) ? elStart.value : e;
+        if (e < s) {
+          s = e;
+          if (elStart) elStart.value = s;
+        }
+        setTambahDateRange(s, e, { syncTimeFields: true, keepCalendarMonth: true });
+      });
+    }
+
+    if (grid) {
+      grid.addEventListener('pointerdown', (event) => {
+        // Mulai drag hanya untuk tombol utama pointer (event.button === 0)
+        if (event.button !== 0) return;
+        const cell = event.target.closest('.cal-day-btn[data-ymd]');
+        if (!cell) return;
+
+        event.preventDefault();
+        const ymd = cell.dataset.ymd;
+
+        if (event.shiftKey && state.tambahCalendar.startYmd) {
+          const anchor = state.tambahCalendar.dragAnchorYmd || state.tambahCalendar.startYmd;
+          setTambahDateRange(anchor, ymd, { syncTimeFields: true, keepCalendarMonth: true });
+          return;
+        }
+
+        state.tambahCalendar.isDragging = true;
+        state.tambahCalendar.dragAnchorYmd = ymd;
+        state.tambahCalendar.lastHoverYmd = ymd;
+        grid.classList.add('is-dragging');
+
+        try {
+          grid.setPointerCapture(event.pointerId);
+        } catch (_) {}
+
+        setTambahDateRange(ymd, ymd, { syncTimeFields: false, keepCalendarMonth: true });
+      });
+
+      grid.addEventListener('pointermove', (event) => {
+        if (!state.tambahCalendar.isDragging) return;
+        const hoveredEl = document.elementFromPoint(event.clientX, event.clientY);
+        const cell = hoveredEl && typeof hoveredEl.closest === 'function'
+          ? hoveredEl.closest('.cal-day-btn[data-ymd]')
+          : null;
+        if (!cell) return;
+
+        const hoveredYmd = cell.dataset.ymd;
+        if (!hoveredYmd || hoveredYmd === state.tambahCalendar.lastHoverYmd) return;
+        state.tambahCalendar.lastHoverYmd = hoveredYmd;
+
+        setTambahDateRange(state.tambahCalendar.dragAnchorYmd, hoveredYmd, {
+          syncTimeFields: false,
+          keepCalendarMonth: true
+        });
+      });
+
+      const endDragGesture = (event) => {
+        if (!state.tambahCalendar.isDragging) return;
+        state.tambahCalendar.isDragging = false;
+        grid.classList.remove('is-dragging');
+
+        if (event && typeof event.pointerId === 'number' && typeof grid.hasPointerCapture === 'function') {
+          try {
+            if (grid.hasPointerCapture(event.pointerId)) {
+              grid.releasePointerCapture(event.pointerId);
+            }
+          } catch (_) {}
+        }
+
+        // Jika memilih 1 tanggal di luar bulan aktif, pindahkan tampilan bulan secara mulus
+        if (state.tambahCalendar.startYmd && state.tambahCalendar.startYmd === state.tambahCalendar.endYmd) {
+          const p = parseYmdParts(state.tambahCalendar.startYmd);
+          if (p && (p.y !== state.tambahCalendar.viewYear || (p.m - 1) !== state.tambahCalendar.viewMonth)) {
+            syncCalendarViewToYmd(state.tambahCalendar.startYmd);
+            renderTambahCalendarGrid();
+          }
+        }
+
+        syncModalTimeFields('tambah', 'date');
+      };
+
+      grid.addEventListener('pointerup', endDragGesture);
+      grid.addEventListener('lostpointercapture', endDragGesture);
+      grid.addEventListener('pointercancel', endDragGesture);
+
+      // Navigasi Keyboard (Panah & Shift+Panah untuk memperluas rentang tanggal)
+      grid.addEventListener('keydown', (event) => {
+        const cell = event.target.closest('.cal-day-btn[data-ymd]');
+        if (!cell) return;
+        const currentYmd = cell.dataset.ymd;
+
+        const keyDeltas = {
+          ArrowLeft: -1,
+          ArrowRight: 1,
+          ArrowUp: -7,
+          ArrowDown: 7
+        };
+
+        if (Object.prototype.hasOwnProperty.call(keyDeltas, event.key)) {
+          event.preventDefault();
+          const nextYmd = addDaysToYmd(currentYmd, keyDeltas[event.key]);
+          syncCalendarViewToYmd(nextYmd);
+          renderTambahCalendarGrid();
+
+          if (event.shiftKey) {
+            const anchor = state.tambahCalendar.dragAnchorYmd || state.tambahCalendar.startYmd || currentYmd;
+            state.tambahCalendar.dragAnchorYmd = anchor;
+            setTambahDateRange(anchor, nextYmd, { syncTimeFields: true, keepCalendarMonth: true });
+          } else {
+            state.tambahCalendar.dragAnchorYmd = nextYmd;
+            setTambahDateRange(nextYmd, nextYmd, { syncTimeFields: true, keepCalendarMonth: true });
+          }
+
+          const nextBtn = grid.querySelector(`.cal-day-btn[data-ymd="${nextYmd}"]`);
+          if (nextBtn) nextBtn.focus();
+        } else if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          if (event.shiftKey && state.tambahCalendar.startYmd) {
+            const anchor = state.tambahCalendar.dragAnchorYmd || state.tambahCalendar.startYmd;
+            setTambahDateRange(anchor, currentYmd, { syncTimeFields: true, keepCalendarMonth: true });
+          } else {
+            state.tambahCalendar.dragAnchorYmd = currentYmd;
+            setTambahDateRange(currentYmd, currentYmd, { syncTimeFields: true, keepCalendarMonth: true });
+          }
+        }
+      });
+    }
+  }
+
+  // ==========================================================================
   // CRUD OPERATIONS: MENGATUR DATA PEGAWAI & PRESENSI
   // ==========================================================================
   function syncModalTimeFields(mode = 'tambah', triggerSource = 'open') {
@@ -1686,14 +2191,24 @@
     const elMasuk = document.getElementById(isTambah ? 'modal-tambah-masuk' : 'modal-edit-masuk');
     const elPulang = document.getElementById(isTambah ? 'modal-tambah-pulang' : 'modal-edit-pulang');
     const elNotice = document.getElementById(isTambah ? 'notice-no-jam-tambah' : 'notice-no-jam-edit');
+    const elSkip = isTambah ? document.getElementById('modal-tambah-skip-weekend') : null;
 
     if (!elStatus) return;
 
-    const tanggalVal = elTanggal ? elTanggal.value : '';
-    const weekend = isWeekendDate(tanggalVal);
+    if (isTambah && triggerSource === 'status' && elSkip && !state.tambahCalendar.userToggledSkipWeekend) {
+      const chosen = normalizeStatusValue(elStatus.value);
+      elSkip.checked = chosen !== 'Lembur';
+    }
+
+    const rangeInfo = isTambah ? getTambahRangeInfo() : null;
+    const tanggalVal = isTambah ? rangeInfo.start : (elTanggal ? elTanggal.value : '');
+    const weekendLock = isTambah
+      ? (!rangeInfo.isRange ? isWeekendDate(rangeInfo.start) : rangeInfo.allWeekendOnly)
+      : isWeekendDate(tanggalVal);
+
     const optHadir = elStatus.querySelector('option[value="Hadir"]');
 
-    if (weekend) {
+    if (weekendLock) {
       if (optHadir) {
         optHadir.disabled = true;
         optHadir.textContent = 'Hadir (Tidak berlaku di Sabtu/Minggu — Otomatis Lembur)';
@@ -1716,7 +2231,14 @@
     }
 
     const statusVal = normalizeStatusValue(elStatus.value);
-    const hideTime = weekend || isNonTimedStatus(statusVal);
+    const hideTime = weekendLock || isNonTimedStatus(statusVal);
+
+    if (isTambah) {
+      refreshTambahCalendarSelectionUI();
+    }
+
+    const latestRange = isTambah ? getTambahRangeInfo() : null;
+    const effCount = latestRange ? latestRange.effectiveDates.length : 1;
 
     if (hideTime) {
       if (elRowJam) elRowJam.style.display = 'none';
@@ -1725,7 +2247,14 @@
 
       if (elNotice) {
         elNotice.style.display = 'flex';
-        if (statusVal === 'Lembur' && weekend) {
+        if (isTambah && latestRange && latestRange.isRange) {
+          const spanLabel = `${formatTanggalIndo(latestRange.start)} s/d ${formatTanggalIndo(latestRange.end)}`;
+          const skipNote = latestRange.skipWeekend
+            ? ` (Sabtu &amp; Minggu dilewati otomatis)`
+            : '';
+          elNotice.className = statusVal === 'Lembur' ? 'no-time-notice' : 'no-time-notice notice-izin';
+          elNotice.innerHTML = `<span>${statusVal === 'Lembur' ? '🗓️' : '📄'}</span><div><strong>Rentang ${escapeHtml(statusVal)} (${effCount} Hari) — Tidak Ada Jam</strong><br>Presensi <strong>${escapeHtml(statusVal)}</strong> akan ditambahkan untuk <strong>${effCount} tanggal</strong> (${escapeHtml(spanLabel)})${skipNote} tanpa jam masuk &amp; jam pulang.</div>`;
+        } else if (statusVal === 'Lembur' && weekendLock) {
           const wkDay = getWeekendDayName(tanggalVal);
           elNotice.className = 'no-time-notice';
           elNotice.innerHTML = `<span>🗓️</span><div><strong>Lembur Akhir Pekan (${escapeHtml(wkDay)}) — Tidak Ada Jam</strong><br>Hari Sabtu &amp; Minggu tercatat otomatis sebagai <strong>Lembur</strong> tanpa jam masuk maupun jam pulang.</div>`;
@@ -1739,10 +2268,18 @@
       }
     } else {
       if (elRowJam) elRowJam.style.display = 'grid';
-      if (elNotice) elNotice.style.display = 'none';
       if (isTambah && elMasuk && elPulang && !elMasuk.value && !elPulang.value) {
         elMasuk.value = '08:15';
         elPulang.value = '16:45';
+      }
+      if (elNotice) {
+        if (isTambah && latestRange && latestRange.isRange && effCount > 1) {
+          elNotice.style.display = 'flex';
+          elNotice.className = 'no-time-notice';
+          elNotice.innerHTML = `<span>🗓️</span><div><strong>Rentang Hadir (${effCount} Hari Kerja)</strong><br>Jam masuk &amp; jam pulang di atas akan diterapkan sekaligus pada <strong>${effCount} tanggal</strong> (${escapeHtml(formatTanggalIndo(latestRange.start))} s/d ${escapeHtml(formatTanggalIndo(latestRange.end))}).</div>`;
+        } else {
+          elNotice.style.display = 'none';
+        }
       }
     }
   }
@@ -1750,71 +2287,102 @@
   function handleTambahPresensi(e) {
     e.preventDefault();
     const nip = document.getElementById('modal-tambah-pegawai').value;
-    const tanggal = document.getElementById('modal-tambah-tanggal').value;
     const rawMasuk = document.getElementById('modal-tambah-masuk').value || null;
     const rawPulang = document.getElementById('modal-tambah-pulang').value || null;
     const rawStatus = document.getElementById('modal-tambah-status').value || 'Hadir';
     const rawKeterangan = document.getElementById('modal-tambah-keterangan').value || null;
 
-    if (!nip || !tanggal) {
-      alert('Silakan pilih pegawai dan tanggal presensi.');
+    const rangeInfo = getTambahRangeInfo();
+    const targetDates = rangeInfo.effectiveDates;
+
+    if (!nip || !targetDates || targetDates.length === 0) {
+      alert('Silakan pilih pegawai dan minimal satu tanggal presensi yang valid.');
       return;
     }
 
-    const emp = state.pegawaiList.find(p => p.nip === nip) || {};
-    const existingIdx = state.absensiList.findIndex(r => r.nip === nip && r.tanggal === tanggal);
-
-    let targetRecord;
-    let subAction = 'INSERT';
-
-    if (existingIdx >= 0) {
-      subAction = 'UPDATE';
-      targetRecord = normalizeAttendanceRecord({
-        ...state.absensiList[existingIdx],
-        nama_lengkap: emp.nama_lengkap || state.absensiList[existingIdx].nama_lengkap || 'Pegawai',
-        unit_kerja: emp.unit_kerja || state.absensiList[existingIdx].unit_kerja || '-',
-        jam_masuk: rawMasuk,
-        jam_pulang: rawPulang,
-        status_kehadiran: rawStatus,
-        keterangan: rawKeterangan
-      });
-      state.absensiList[existingIdx] = targetRecord;
-    } else {
-      targetRecord = normalizeAttendanceRecord({
-        id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
-        tanggal,
-        nip,
-        nama_lengkap: emp.nama_lengkap || 'Pegawai',
-        unit_kerja: emp.unit_kerja || '-',
-        jam_masuk: rawMasuk,
-        jam_pulang: rawPulang,
-        status_kehadiran: rawStatus,
-        keterangan: rawKeterangan
-      });
-      state.absensiList.unshift(targetRecord);
+    if (rangeInfo.truncated) {
+      showToast('Rentang tanggal dibatasi maksimal 62 hari dalam satu kali penyimpanan.', 'warning');
     }
 
-    state.liveHighlights.set(`${nip}|${tanggal}`, {
-      seq: ++state.liveSeqCounter,
-      actorName: 'Anda',
-      label: subAction === 'INSERT' ? '✨ Baru Ditambahkan' : '✨ Baru Diperbarui',
-      timestamp: Date.now()
-    });
+    const emp = state.pegawaiList.find(p => p.nip === nip) || {};
+    const savedRecords = [];
+    let insertedCount = 0;
+    let updatedCount = 0;
+
+    // Proses terurut agar urutan tampilan kronologis tetap rapi
+    const orderedDates = [...targetDates].sort();
+
+    for (const tanggal of orderedDates) {
+      const existingIdx = state.absensiList.findIndex(r => r.nip === nip && r.tanggal === tanggal);
+      let targetRecord;
+      let subAction = 'INSERT';
+
+      if (existingIdx >= 0) {
+        subAction = 'UPDATE';
+        updatedCount++;
+        targetRecord = normalizeAttendanceRecord({
+          ...state.absensiList[existingIdx],
+          nama_lengkap: emp.nama_lengkap || state.absensiList[existingIdx].nama_lengkap || 'Pegawai',
+          unit_kerja: emp.unit_kerja || state.absensiList[existingIdx].unit_kerja || '-',
+          jam_masuk: rawMasuk,
+          jam_pulang: rawPulang,
+          status_kehadiran: rawStatus,
+          keterangan: rawKeterangan
+        });
+        state.absensiList[existingIdx] = targetRecord;
+      } else {
+        insertedCount++;
+        targetRecord = normalizeAttendanceRecord({
+          id: 'rec_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6),
+          tanggal,
+          nip,
+          nama_lengkap: emp.nama_lengkap || 'Pegawai',
+          unit_kerja: emp.unit_kerja || '-',
+          jam_masuk: rawMasuk,
+          jam_pulang: rawPulang,
+          status_kehadiran: rawStatus,
+          keterangan: rawKeterangan
+        });
+        state.absensiList.unshift(targetRecord);
+      }
+
+      savedRecords.push(targetRecord);
+      state.liveHighlights.set(`${nip}|${tanggal}`, {
+        seq: ++state.liveSeqCounter,
+        actorName: 'Anda',
+        label: subAction === 'INSERT' ? '✨ Baru Ditambahkan' : '✨ Baru Diperbarui',
+        timestamp: Date.now()
+      });
+    }
+
     state.pagination.currentPage = 1;
 
     saveAbsensi(true);
     populateDateDropdown();
     closeModal('modal-tambah');
     evaluateAndRender();
-    showToast(
-      subAction === 'INSERT'
-        ? `Presensi ${targetRecord.status_kehadiran} untuk ${emp.nama_lengkap} (${tanggal}) berhasil ditambahkan & disiarkan live!`
-        : `Presensi ${targetRecord.status_kehadiran} ${emp.nama_lengkap} (${tanggal}) berhasil diperbarui & disiarkan live!`,
-      'success'
-    );
 
-    if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
-      window.supabaseSync.updateRecordInCloud(targetRecord, subAction).catch(() => {});
+    if (savedRecords.length === 1) {
+      const singleRec = savedRecords[0];
+      showToast(
+        insertedCount > 0
+          ? `Presensi ${singleRec.status_kehadiran} untuk ${emp.nama_lengkap} (${singleRec.tanggal}) berhasil ditambahkan & disiarkan live!`
+          : `Presensi ${singleRec.status_kehadiran} ${emp.nama_lengkap} (${singleRec.tanggal}) berhasil diperbarui & disiarkan live!`,
+        'success'
+      );
+      if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
+        window.supabaseSync.updateRecordInCloud(singleRec, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => {});
+      }
+    } else {
+      const firstRec = savedRecords[0];
+      const lastRec = savedRecords[savedRecords.length - 1];
+      showToast(
+        `Berhasil menyimpan ${savedRecords.length} hari ${firstRec.status_kehadiran} untuk ${emp.nama_lengkap} (${formatTanggalIndo(firstRec.tanggal)} – ${formatTanggalIndo(lastRec.tanggal)}) & disiarkan live!`,
+        'success'
+      );
+      if (window.supabaseSync && typeof window.supabaseSync.upsertRecordsBatchInCloud === 'function') {
+        window.supabaseSync.upsertRecordsBatchInCloud(savedRecords, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => {});
+      }
     }
   }
 
@@ -2016,13 +2584,24 @@
   // ==========================================================================
   function openModal(modalId) {
     if (modalId === 'modal-tambah') {
-      syncModalTimeFields('tambah', 'open');
+      const baseDate = state.tambahCalendar.startYmd || getTodayLocalIso();
+      state.tambahCalendar.userToggledSkipWeekend = false;
+      const elSkip = document.getElementById('modal-tambah-skip-weekend');
+      const elStatus = document.getElementById('modal-tambah-status');
+      if (elSkip) {
+        elSkip.checked = !elStatus || normalizeStatusValue(elStatus.value) !== 'Lembur';
+      }
+      setTambahCalendarOpen(false);
+      setTambahDateRange(baseDate, baseDate, { syncTimeFields: true, keepCalendarMonth: false });
     }
     const el = document.getElementById(modalId);
     if (el) el.classList.add('active');
   }
 
   function closeModal(modalId) {
+    if (modalId === 'modal-tambah') {
+      setTambahCalendarOpen(false);
+    }
     const el = document.getElementById(modalId);
     if (el) el.classList.remove('active');
   }
@@ -2263,6 +2842,77 @@
     return outcome;
   }
 
+  function applyRemoteRecordsBatch(records, actor = {}, subAction = 'INSERT') {
+    if (!Array.isArray(records) || records.length === 0) return 0;
+
+    const valid = records.filter(r => r && r.nip && r.tanggal);
+    if (valid.length === 0) return 0;
+
+    const actorName = actor && actor.name ? actor.name : 'Pengguna Lain';
+    let insertedCount = 0;
+    let firstEnriched = null;
+    let lastEnriched = null;
+
+    valid.forEach(record => {
+      if (!state.pegawaiList.some(p => p.nip === record.nip)) {
+        mergePegawaiList([{
+          nip: record.nip,
+          nama_lengkap: record.nama_lengkap || ('Pegawai ' + record.nip),
+          status_kepegawaian: 'PNS',
+          unit_kerja: record.unit_kerja || 'FHISIP'
+        }]);
+      }
+
+      const emp = state.pegawaiList.find(p => p.nip === record.nip) || {};
+      const enriched = normalizeAttendanceRecord({
+        ...record,
+        nama_lengkap: record.nama_lengkap || emp.nama_lengkap || 'Pegawai',
+        unit_kerja: record.unit_kerja || emp.unit_kerja || 'FHISIP'
+      });
+
+      if (!firstEnriched) firstEnriched = enriched;
+      lastEnriched = enriched;
+
+      const existingIdx = state.absensiList.findIndex(
+        r => (r.nip === enriched.nip && r.tanggal === enriched.tanggal) ||
+             (record.id && String(r.id) === String(record.id))
+      );
+
+      let outcome = 'updated';
+      if (existingIdx >= 0) {
+        state.absensiList[existingIdx] = normalizeAttendanceRecord({
+          ...state.absensiList[existingIdx],
+          ...enriched
+        });
+      } else {
+        state.absensiList.unshift(enriched);
+        outcome = 'inserted';
+        insertedCount++;
+      }
+
+      state.liveHighlights.set(`${enriched.nip}|${enriched.tanggal}`, {
+        seq: ++state.liveSeqCounter,
+        actorName,
+        label: outcome === 'inserted' ? `⚡ Live Baru (${actorName.split(' ')[0]})` : `⚡ Diperbarui (${actorName.split(' ')[0]})`,
+        timestamp: Date.now()
+      });
+    });
+
+    saveAbsensi(true, { skipServerPush: true, silentBadge: true });
+    populateDateDropdown();
+    evaluateAndRender();
+
+    if (firstEnriched) {
+      const actionWord = (insertedCount > 0 || subAction === 'INSERT') ? 'menambahkan' : 'memperbarui';
+      showToast(
+        `⚡ Live Update: ${actorName} ${actionWord} ${valid.length} hari ${firstEnriched.status_kehadiran} untuk ${firstEnriched.nama_lengkap} (${formatTanggalIndo(firstEnriched.tanggal)} – ${formatTanggalIndo(lastEnriched.tanggal)})`,
+        'success'
+      );
+    }
+
+    return insertedCount;
+  }
+
   function applyRemoteRecordDelete(nip, tanggal, namaLengkap = '', actor = {}) {
     if (!nip || !tanggal) return;
     const prevLen = state.absensiList.length;
@@ -2393,9 +3043,13 @@
     normalizeAttendanceRecord,
     mergePegawaiList,
     applyRemoteRecordUpsert,
+    applyRemoteRecordsBatch,
     applyRemoteRecordDelete,
     applyRemoteDataset,
     applyRemoteConfigUpdate,
+    setTambahDateRange,
+    getTambahRangeInfo,
+    setTambahCalendarOpen,
     getConfig: () => ({ ...state.config }),
     getActiveFilterState: () => ({ ...state.filters }),
     formatPeriodLabel,

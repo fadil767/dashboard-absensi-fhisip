@@ -846,6 +846,91 @@
   }
 
   /**
+   * Menyimpan/memperbarui rentang beberapa tanggal sekaligus (mis. Cuti 1-5)
+   * dalam 1 transaksi Cloud + Live Broadcast instan (<100ms) ke semua perangkat
+   */
+  async function upsertRecordsBatchInCloud(records, subAction = 'INSERT') {
+    if (!Array.isArray(records) || records.length === 0) return false;
+    const validRecords = records.filter(r => r && r.nip && r.tanggal);
+    if (validRecords.length === 0) return false;
+
+    if (validRecords.length === 1) {
+      return updateRecordInCloud(validRecords[0], subAction);
+    }
+
+    validRecords.forEach(r => markFingerprint(r.nip, r.tanggal));
+    lastLocalMutationAt = Date.now();
+
+    if (!navigator.onLine) {
+      validRecords.forEach(r => enqueueOfflineMutation({ op: 'upsert', record: { ...r } }));
+      return false;
+    }
+
+    const client = getClient();
+    if (!client) return false;
+
+    try {
+      const cleanRecords = validRecords.map(normalizeRecordForCloud);
+      await ensurePegawaiInCloud(cleanRecords);
+
+      const payloads = cleanRecords.map(cleanRec => ({
+        nip: cleanRec.nip,
+        tanggal: cleanRec.tanggal,
+        jam_masuk: cleanRec.jam_masuk || null,
+        jam_pulang: cleanRec.jam_pulang || null,
+        status_kehadiran: cleanRec.status_kehadiran || 'Hadir',
+        keterangan: cleanRec.keterangan || null
+      }));
+
+      const { data, error } = await client
+        .from('absensi')
+        .upsert(payloads, { onConflict: 'nip, tanggal' })
+        .select('id, nip, tanggal');
+
+      if (error) throw error;
+
+      const idMap = new Map();
+      if (Array.isArray(data)) {
+        data.forEach(row => {
+          if (row && row.nip && row.tanggal) {
+            idMap.set(`${row.nip}|${row.tanggal}`, row.id);
+            if (typeof row.id === 'number' && (!lastKnownLatestId || row.id > lastKnownLatestId)) {
+              lastKnownLatestId = row.id;
+            }
+          }
+        });
+      }
+
+      const syncedRecords = cleanRecords.map(r => {
+        const cloudId = idMap.get(`${r.nip}|${r.tanggal}`);
+        return cloudId ? { ...r, id: cloudId } : r;
+      });
+
+      lastSyncedAt = new Date();
+      lastLocalMutationAt = Date.now();
+      refreshCloudMetaSnapshot().catch(() => {});
+
+      broadcastMutation('UPSERT_BATCH', {
+        subAction,
+        records: syncedRecords
+      });
+
+      const first = syncedRecords[0];
+      const last = syncedRecords[syncedRecords.length - 1];
+      recordActivityLog(
+        `menambahkan ${syncedRecords.length} hari ${first.status_kehadiran} untuk ${first.nama_lengkap || first.nip} (${first.tanggal} s/d ${last.tanggal})`,
+        getActorInfo().name
+      );
+      updateGlobalSyncBadge();
+      return true;
+    } catch (e) {
+      console.warn('[LiveSync] Gagal sinkron rentang presensi ke Cloud, masuk antrean offline:', e.message || e);
+      validRecords.forEach(r => enqueueOfflineMutation({ op: 'upsert', record: { ...r } }));
+      return false;
+    }
+  }
+
+  /**
    * Menghapus 1 baris presensi dari Cloud + Live Broadcast instan ke user lain
    */
   async function deleteRecordFromCloud(nip, tanggal, namaLengkap = '') {
@@ -976,6 +1061,41 @@
 
       const verb = payload.subAction === 'INSERT' ? 'menambahkan' : 'memperbarui';
       recordActivityLog(`${verb} presensi ${rec.nama_lengkap || rec.nip} (${rec.tanggal})`, actorName, 'remote');
+      updateGlobalSyncBadge();
+      return;
+    }
+
+    if (payload.action === 'UPSERT_BATCH' && Array.isArray(payload.records) && payload.records.length > 0) {
+      payload.records.forEach(rec => {
+        if (!rec || !rec.nip || !rec.tanggal) return;
+        markFingerprint(rec.nip, rec.tanggal);
+        if (typeof rec.id === 'number' && (!lastKnownLatestId || rec.id > lastKnownLatestId)) {
+          lastKnownLatestId = rec.id;
+        }
+      });
+
+      let insertedCount = 0;
+      if (window.app && typeof window.app.applyRemoteRecordsBatch === 'function') {
+        insertedCount = window.app.applyRemoteRecordsBatch(payload.records, actor, payload.subAction || 'INSERT') || 0;
+      } else if (window.app && typeof window.app.applyRemoteRecordUpsert === 'function') {
+        payload.records.forEach(rec => {
+          if (window.app.applyRemoteRecordUpsert(rec, actor, payload.subAction || 'INSERT') === 'inserted') {
+            insertedCount++;
+          }
+        });
+      }
+
+      if (insertedCount > 0 && typeof lastKnownCloudCount === 'number') {
+        lastKnownCloudCount += insertedCount;
+      }
+
+      const first = payload.records[0];
+      const last = payload.records[payload.records.length - 1];
+      recordActivityLog(
+        `menambahkan ${payload.records.length} hari ${first.status_kehadiran || 'Presensi'} ${first.nama_lengkap || first.nip} (${first.tanggal} s/d ${last.tanggal})`,
+        actorName,
+        'remote'
+      );
       updateGlobalSyncBadge();
       return;
     }
@@ -1423,6 +1543,7 @@
     replaceAllInCloud,
     deleteRecordFromCloud,
     updateRecordInCloud,
+    upsertRecordsBatchInCloud,
     syncConfigToCloud,
     setAutoSyncEnabled,
     isAutoSyncEnabled,
