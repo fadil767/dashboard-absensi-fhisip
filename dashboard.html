@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.7">
+  <link rel="stylesheet" href="css/style.css?v=2.8">
 </head>
 <body>
 
@@ -58,60 +58,60 @@
       <!-- Toolbar ringkas: 2 aksi utama + 3 menu terkelompok -->
       <div class="header-actions">
         <button type="button" id="btn-header-tambah" class="btn btn-primary" onclick="window.app.openModal('modal-tambah')">
-          <span>➕</span> Tambah Presensi
+          <span>âž•</span> Tambah Presensi
         </button>
         <button type="button" id="btn-header-import" class="btn btn-outline" onclick="window.app.openModal('modal-import')" title="Impor Data dari Berkas Excel .xls/.xlsx atau Scan Biometrik">
-          <span>📥</span> Import
+          <span>ðŸ“¥</span> Import
         </button>
 
         <span class="header-divider" aria-hidden="true"></span>
 
         <!-- Menu Ekspor & Laporan -->
         <button type="button" id="btn-menu-export" class="btn btn-outline menu-trigger" popovertarget="menu-export" title="Ekspor, unduh, dan cetak laporan">
-          <span>📤</span> Ekspor &amp; Laporan
+          <span>ðŸ“¤</span> Ekspor &amp; Laporan
           <svg class="menu-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div id="menu-export" popover="auto" class="menu-panel" aria-label="Menu Ekspor &amp; Laporan">
           <div class="menu-section-label">Laporan Resmi</div>
           <button type="button" id="menu-item-monthly-xlsx" class="menu-item" onclick="window.monthlyReportGenerator.openExportModal()">
-            <span class="menu-item-icon icon-teal">📑</span>
+            <span class="menu-item-icon icon-teal">ðŸ“‘</span>
             <span class="menu-item-text"><strong>Rekap Bulanan Resmi</strong><small>Desain &amp; template resmi UT + ttd Dekan</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <button type="button" id="menu-item-monthly-template-xlsx" class="menu-item" onclick="window.monthlyReportGenerator.exportMonthlyTemplateExcel()">
-            <span class="menu-item-icon icon-teal">📋</span>
+            <span class="menu-item-icon icon-teal">ðŸ“‹</span>
             <span class="menu-item-text"><strong>Template Rekap Bulanan Resmi</strong><small>Template siap isi + rumus otomatis UT</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <button type="button" id="menu-item-pdf-harian" class="menu-item" onclick="window.app.exportPdf('harian')">
-            <span class="menu-item-icon icon-blue">📄</span>
+            <span class="menu-item-icon icon-blue">ðŸ“„</span>
             <span class="menu-item-text"><strong>PDF Log Presensi Harian</strong><small>Lengkap dengan kop surat FHISIP UT</small></span>
             <span class="menu-item-tag">.pdf</span>
           </button>
           <button type="button" id="menu-item-pdf-pegawai" class="menu-item" onclick="window.app.exportPdf('pegawai')">
-            <span class="menu-item-icon icon-blue">👥</span>
+            <span class="menu-item-icon icon-blue">ðŸ‘¥</span>
             <span class="menu-item-text"><strong>PDF Rekap per Pegawai</strong><small>Akumulasi disiplin setiap pegawai</small></span>
             <span class="menu-item-tag">.pdf</span>
           </button>
           <button type="button" id="menu-item-print" class="menu-item" onclick="window.app.printOfficialReport()">
-            <span class="menu-item-icon icon-slate">🖨️</span>
+            <span class="menu-item-icon icon-slate">ðŸ–¨ï¸</span>
             <span class="menu-item-text"><strong>Cetak Laporan</strong><small>Cetak langsung tampilan saat ini</small></span>
           </button>
 
           <div class="menu-separator" role="separator"></div>
           <div class="menu-section-label">Hasil Filter Saat Ini</div>
           <button type="button" id="btn-export-filtered-xlsx" class="menu-item" onclick="window.monthlyReportGenerator.exportFilteredRecapExcel()">
-            <span class="menu-item-icon icon-teal">📑</span>
+            <span class="menu-item-icon icon-teal">ðŸ“‘</span>
             <span class="menu-item-text"><strong>Excel Rekap Terolah (Filter)</strong><small>Diolah format Laporan Rekapitulasi UT</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <button type="button" id="btn-export-filtered-csv" class="menu-item" onclick="window.app.exportToCsv(true)">
-            <span class="menu-item-icon icon-green">📊</span>
+            <span class="menu-item-icon icon-green">ðŸ“Š</span>
             <span class="menu-item-text"><strong>CSV Terfilter</strong><small>Hanya baris yang sedang ditampilkan</small></span>
             <span class="menu-item-tag">.csv</span>
           </button>
           <button type="button" id="btn-export-filtered-pdf" class="menu-item" onclick="window.app.exportPdf('harian', true)">
-            <span class="menu-item-icon icon-blue">📄</span>
+            <span class="menu-item-icon icon-blue">ðŸ“„</span>
             <span class="menu-item-text"><strong>PDF Terfilter</strong><small>Hanya baris yang sedang ditampilkan</small></span>
             <span class="menu-item-tag">.pdf</span>
           </button>
@@ -119,12 +119,12 @@
           <div class="menu-separator" role="separator"></div>
           <div class="menu-section-label">Data Lengkap Terupdate (Live)</div>
           <button type="button" id="menu-item-xlsx-all" class="menu-item" onclick="window.app.exportLiveDatabaseXlsx('')">
-            <span class="menu-item-icon icon-teal">📊</span>
+            <span class="menu-item-icon icon-teal">ðŸ“Š</span>
             <span class="menu-item-text"><strong>Rekap &amp; Database Excel Live</strong><small>Sheet Rekapitulasi Terolah + Log Lengkap</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <button type="button" id="menu-item-csv-all" class="menu-item" onclick="window.app.exportToCsv(false)">
-            <span class="menu-item-icon icon-green">📁</span>
+            <span class="menu-item-icon icon-green">ðŸ“</span>
             <span class="menu-item-text"><strong>Database CSV Terpadu Live</strong><small>Seluruh catatan presensi terupdate</small></span>
             <span class="menu-item-tag">.csv</span>
           </button>
@@ -132,27 +132,27 @@
 
         <!-- Menu Kelola Data -->
         <button type="button" id="btn-menu-data" class="btn btn-outline menu-trigger" popovertarget="menu-data" title="Referensi, template, sinkronisasi, dan reset data">
-          <span>🗄️</span> Kelola Data
+          <span>ðŸ—„ï¸</span> Kelola Data
           <svg class="menu-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </button>
         <div id="menu-data" popover="auto" class="menu-panel" aria-label="Menu Kelola Data">
           <div class="menu-section-label">Referensi &amp; Berkas</div>
           <button type="button" id="menu-item-kamus" class="menu-item" onclick="window.app.openDatabaseRefModal()">
-            <span class="menu-item-icon icon-gold">📚</span>
+            <span class="menu-item-icon icon-gold">ðŸ“š</span>
             <span class="menu-item-text"><strong>Kamus &amp; Referensi Data</strong><small>Metadata &amp; standar struktur kolom</small></span>
           </button>
           <button type="button" id="menu-item-sept-clean" class="menu-item" onclick="window.app.exportLiveDatabaseXlsx('')">
-            <span class="menu-item-icon icon-navy">📥</span>
+            <span class="menu-item-icon icon-navy">ðŸ“¥</span>
             <span class="menu-item-text"><strong>Database Presensi Live</strong><small>Unduh Excel bersih terupdate saat ini</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <button type="button" id="menu-item-data-rekap-template" class="menu-item" onclick="window.monthlyReportGenerator.exportMonthlyTemplateExcel()">
-            <span class="menu-item-icon icon-teal">📑</span>
+            <span class="menu-item-icon icon-teal">ðŸ“‘</span>
             <span class="menu-item-text"><strong>Template Rekap Bulanan Resmi</strong><small>Desain tabel &amp; rumus standar FHISIP UT</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </button>
           <a id="menu-item-template" class="menu-item" href="/Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx">
-            <span class="menu-item-icon icon-slate">📋</span>
+            <span class="menu-item-icon icon-slate">ðŸ“‹</span>
             <span class="menu-item-text"><strong>Template Input Presensi Harian</strong><small>Format standar impor log harian</small></span>
             <span class="menu-item-tag">.xlsx</span>
           </a>
@@ -160,13 +160,13 @@
           <div class="menu-separator" role="separator"></div>
           <div class="menu-section-label">Sinkronisasi Multi-Device</div>
           <button type="button" id="menu-item-supabase" class="menu-item" onclick="window.supabaseSync.openModal()">
-            <span class="menu-item-icon icon-green">⚡</span>
+            <span class="menu-item-icon icon-green">âš¡</span>
             <span class="menu-item-text"><strong>Live Sync &amp; Cloud</strong><small>Sinkronisasi real-time antar perangkat &amp; user</small></span>
           </button>
 
           <div class="menu-separator" role="separator"></div>
           <button type="button" id="menu-item-reset" class="menu-item menu-item-danger" onclick="window.app.resetToDefault()">
-            <span class="menu-item-icon icon-red">🔄</span>
+            <span class="menu-item-icon icon-red">ðŸ”„</span>
             <span class="menu-item-text"><strong>Reset ke Data Awal</strong><small>Kembalikan seluruh data bawaan</small></span>
           </button>
         </div>
@@ -182,12 +182,12 @@
         </button>
         <div id="menu-user" popover="auto" class="menu-panel menu-panel-sm" aria-label="Menu Akun">
           <a id="menu-item-home" class="menu-item" href="index.html">
-            <span class="menu-item-icon icon-slate">🏠</span>
+            <span class="menu-item-icon icon-slate">ðŸ </span>
             <span class="menu-item-text"><strong>Halaman Masuk</strong></span>
           </a>
           <div class="menu-separator" role="separator"></div>
           <button type="button" id="menu-item-logout" class="menu-item menu-item-danger" onclick="logoutCurrentSession()">
-            <span class="menu-item-icon icon-red">🚪</span>
+            <span class="menu-item-icon icon-red">ðŸšª</span>
             <span class="menu-item-text"><strong>Keluar / Ganti Akun</strong></span>
           </button>
         </div>
@@ -201,7 +201,7 @@
     <details class="config-card config-collapsible" id="config-panel" aria-label="Pengaturan Batas Waktu Presensi">
       <summary class="config-summary">
         <div class="config-title-group">
-          <div class="config-title-icon">⚙️</div>
+          <div class="config-title-icon">âš™ï¸</div>
           <div>
             <h2>Pengaturan Batas Datang Terlambat &amp; Waktu Kepulangan</h2>
             <div class="active-rule-summary" id="header-policy-rule">
@@ -224,13 +224,13 @@
         <div class="config-preset-pills">
           <span style="font-size:0.75rem; font-weight:700; color:var(--text-muted);">Preset Kebijakan:</span>
           <button type="button" class="preset-btn active" data-preset="fhisip">
-            🏛 SK FHISIP UT (08:30 & 16:30)
+            ðŸ› SK FHISIP UT (08:30 & 16:30)
           </button>
           <button type="button" class="preset-btn" data-preset="ut-pusat">
-            🏢 Standar UT Pusat (08:00 & 16:30)
+            ðŸ¢ Standar UT Pusat (08:00 & 16:30)
           </button>
           <button type="button" class="preset-btn" data-preset="toleransi-15">
-            ⏱ Dispensasi (+15 Menit)
+            â± Dispensasi (+15 Menit)
           </button>
         </div>
       </div>
@@ -292,7 +292,7 @@
       </div>
 
       <div class="config-footer-note">
-        <span>💡 Kalkulasi otomatis berjalan secara reaktif di browser tanpa membebani server.</span>
+        <span>ðŸ’¡ Kalkulasi otomatis berjalan secara reaktif di browser tanpa membebani server.</span>
       </div>
       </div> <!-- /.config-body -->
     </details>
@@ -305,7 +305,7 @@
       <div class="stat-card stat-total">
         <div class="stat-card-top">
           <span class="stat-card-label">Total Presensi</span>
-          <div class="stat-card-icon">📑</div>
+          <div class="stat-card-icon">ðŸ“‘</div>
         </div>
         <div class="stat-card-value" id="stat-total-records">0</div>
         <div class="stat-card-sub" style="color:var(--ut-blue);">
@@ -317,7 +317,7 @@
       <div class="stat-card stat-success">
         <div class="stat-card-top">
           <span class="stat-card-label">Tepat Waktu</span>
-          <div class="stat-card-icon">✅</div>
+          <div class="stat-card-icon">âœ…</div>
         </div>
         <div class="stat-card-value" id="stat-tepat-count">0</div>
         <div class="stat-card-sub" id="stat-tepat-pct" style="color:var(--success-text);">0% Tepat Waktu</div>
@@ -330,10 +330,10 @@
       <div class="stat-card stat-danger">
         <div class="stat-card-top">
           <span class="stat-card-label">Terlambat Datang</span>
-          <div class="stat-card-icon">🚨</div>
+          <div class="stat-card-icon">ðŸš¨</div>
         </div>
         <div class="stat-card-value" id="stat-telat-count">0</div>
-        <div class="stat-card-sub" id="stat-telat-sub" style="color:var(--danger-text);">0% • Rata-rata 0 mnt</div>
+        <div class="stat-card-sub" id="stat-telat-sub" style="color:var(--danger-text);">0% â€¢ Rata-rata 0 mnt</div>
         <div class="stat-progress-bar">
           <div class="stat-progress-fill fill-danger" id="bar-telat" style="width: 0%;"></div>
         </div>
@@ -343,7 +343,7 @@
       <div class="stat-card stat-warning">
         <div class="stat-card-top">
           <span class="stat-card-label">Pulang Lebih Awal</span>
-          <div class="stat-card-icon">⏳</div>
+          <div class="stat-card-icon">â³</div>
         </div>
         <div class="stat-card-value" id="stat-pulang-cepat-count">0</div>
         <div class="stat-card-sub" style="color:var(--warning-text);">Mendahului Jam Resmi</div>
@@ -359,23 +359,23 @@
     <div class="database-period-banner">
       <div class="period-selector-group">
         <span class="period-label">
-          <span style="font-size:1.1rem;">🗄️</span>
+          <span style="font-size:1.1rem;">ðŸ—„ï¸</span>
           <strong>Basis Data Periode:</strong>
         </span>
         <div class="period-btn-group" id="period-filter-group" role="group" aria-label="Pilih Periode Database">
           <button type="button" class="period-btn active" data-period="all" title="Tampilkan seluruh data terpadu (September & Oktober 2026)">
-            <span>🌟</span>
+            <span>ðŸŒŸ</span>
             <span>Semua Periode</span>
             <span class="period-count" id="count-period-all">3.098</span>
           </button>
           <button type="button" class="period-btn" data-period="2026-09" title="Hanya tampilkan data hasil olahan September 2026">
-            <span>📅</span>
+            <span>ðŸ“…</span>
             <span>September 2026</span>
             <span class="period-count" id="count-period-sept">2.150</span>
             <span class="period-badge-new">Diolah</span>
           </button>
           <button type="button" class="period-btn" data-period="2026-10" title="Hanya tampilkan data berjalan Oktober 2026">
-            <span>📅</span>
+            <span>ðŸ“…</span>
             <span>Oktober 2026</span>
             <span class="period-count" id="count-period-oct">948</span>
           </button>
@@ -389,15 +389,15 @@
     <div class="view-tabs-bar">
       <div class="view-tabs">
         <button type="button" class="tab-btn active" data-tab="harian">
-          <span>📋</span> Log Presensi Harian
+          <span>ðŸ“‹</span> Log Presensi Harian
           <span class="tab-count-badge" id="tab-count-harian">0</span>
         </button>
         <button type="button" class="tab-btn" data-tab="pegawai">
-          <span>👥</span> Rekap per Pegawai (Akumulasi)
+          <span>ðŸ‘¥</span> Rekap per Pegawai (Akumulasi)
           <span class="tab-count-badge" id="tab-count-pegawai">0</span>
         </button>
         <button type="button" class="tab-btn" data-tab="prodi">
-          <span>🏛</span> Rekap per Program Studi / Bagian
+          <span>ðŸ›</span> Rekap per Program Studi / Bagian
         </button>
       </div>
     </div>
@@ -421,7 +421,7 @@
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
             <input type="text" id="filter-search" class="search-input" placeholder="Cari Nama Pegawai atau NIP..." aria-label="Pencarian Pegawai">
-            <button type="button" id="btn-clear-search" class="search-clear-btn" title="Hapus Pencarian" style="display:none;">✕</button>
+            <button type="button" id="btn-clear-search" class="search-clear-btn" title="Hapus Pencarian" style="display:none;">âœ•</button>
           </div>
 
           <!-- Quick Status Filter Buttons with Live Badges -->
@@ -430,36 +430,36 @@
               Semua <span class="filter-pill-count" id="count-status-all">0</span>
             </button>
             <button type="button" class="status-filter-btn filter-telat" data-status="telat">
-              🚨 Terlambat <span class="filter-pill-count" id="count-status-telat">0</span>
+              ðŸš¨ Terlambat <span class="filter-pill-count" id="count-status-telat">0</span>
             </button>
             <button type="button" class="status-filter-btn filter-tepat" data-status="tepat">
-              ✅ Tepat Waktu <span class="filter-pill-count" id="count-status-tepat">0</span>
+              âœ… Tepat Waktu <span class="filter-pill-count" id="count-status-tepat">0</span>
             </button>
             <button type="button" class="status-filter-btn" data-status="pulang_cepat">
-              ⏳ Pulang Cepat <span class="filter-pill-count" id="count-status-pulang-cepat">0</span>
+              â³ Pulang Cepat <span class="filter-pill-count" id="count-status-pulang-cepat">0</span>
             </button>
             <button type="button" class="status-filter-btn" data-status="tanpa_pulang">
-              ⚠️ Belum Scan Pulang <span class="filter-pill-count" id="count-status-tanpa-pulang">0</span>
+              âš ï¸ Belum Scan Pulang <span class="filter-pill-count" id="count-status-tanpa-pulang">0</span>
             </button>
             <button type="button" class="status-filter-btn" data-status="anomali">
-              ⚡ Semua Pelanggaran <span class="filter-pill-count" id="count-status-anomali">0</span>
+              âš¡ Semua Pelanggaran <span class="filter-pill-count" id="count-status-anomali">0</span>
             </button>
             <button type="button" class="status-filter-btn filter-lembur" data-status="lembur">
-              🗓️ Lembur <span class="filter-pill-count" id="count-status-lembur">0</span>
+              ðŸ—“ï¸ Lembur <span class="filter-pill-count" id="count-status-lembur">0</span>
             </button>
             <button type="button" class="status-filter-btn" data-status="izin">
-              📄 Izin / Cuti / Sakit / Dinas <span class="filter-pill-count" id="count-status-izin">0</span>
+              ðŸ“„ Izin / Cuti / Sakit / Dinas <span class="filter-pill-count" id="count-status-izin">0</span>
             </button>
           </div>
 
           <!-- Action Buttons (Toggle Advanced Filter + Reset) -->
           <div class="filter-action-group">
             <button type="button" id="btn-toggle-advanced-filter" class="btn btn-outline btn-sm" title="Buka/Tutup Filter Lanjutan">
-              <span>🎛️ Filter Lanjutan</span>
+              <span>ðŸŽ›ï¸ Filter Lanjutan</span>
               <span id="badge-active-filter-count" class="badge-filter-count" style="display:none;">0</span>
             </button>
             <button type="button" id="btn-reset-filter" class="btn btn-outline btn-sm btn-reset-filter" title="Reset Semua Filter ke Standar Awal" style="display:none;">
-              <span>🔄 Reset Filter</span>
+              <span>ðŸ”„ Reset Filter</span>
             </button>
           </div>
         </div>
@@ -470,7 +470,7 @@
             
             <!-- Filter Program Studi / Bagian -->
             <div class="filter-item">
-              <label for="filter-unit">🏛 Program Studi / Unit Kerja</label>
+              <label for="filter-unit">ðŸ› Program Studi / Unit Kerja</label>
               <select id="filter-unit" class="select-filter" aria-label="Filter Program Studi">
                 <option value="">Semua Program Studi / Unit Kerja</option>
               </select>
@@ -478,7 +478,7 @@
 
             <!-- Filter Status Kepegawaian -->
             <div class="filter-item">
-              <label for="filter-kepegawaian">👤 Status Kepegawaian</label>
+              <label for="filter-kepegawaian">ðŸ‘¤ Status Kepegawaian</label>
               <select id="filter-kepegawaian" class="select-filter" aria-label="Filter Status Kepegawaian">
                 <option value="">Semua Status Kepegawaian</option>
                 <option value="PNS">PNS (Pegawai Negeri Sipil)</option>
@@ -489,7 +489,7 @@
 
             <!-- Filter Tanggal Spesifik -->
             <div class="filter-item">
-              <label for="filter-date">📅 Tanggal Spesifik</label>
+              <label for="filter-date">ðŸ“… Tanggal Spesifik</label>
               <select id="filter-date" class="select-filter" aria-label="Filter Tanggal Presensi">
                 <option value="">Semua Tanggal Periode</option>
               </select>
@@ -497,18 +497,18 @@
 
             <!-- Filter Rentang Tanggal (Date Range) -->
             <div class="filter-item filter-date-range-item">
-              <label>📆 Rentang Tanggal (Dari - Sampai)</label>
+              <label>ðŸ“† Rentang Tanggal (Dari - Sampai)</label>
               <div class="date-range-inputs">
                 <input type="date" id="filter-date-start" class="date-input" aria-label="Tanggal Dari">
                 <span class="date-sep">s/d</span>
                 <input type="date" id="filter-date-end" class="date-input" aria-label="Tanggal Sampai">
-                <button type="button" id="btn-clear-date-range" class="btn-clear-mini" title="Hapus Rentang Tanggal" style="display:none;">✕</button>
+                <button type="button" id="btn-clear-date-range" class="btn-clear-mini" title="Hapus Rentang Tanggal" style="display:none;">âœ•</button>
               </div>
             </div>
 
             <!-- Filter Durasi Keterlambatan -->
             <div class="filter-item">
-              <label for="filter-durasi-telat">⏱ Tingkat Keterlambatan</label>
+              <label for="filter-durasi-telat">â± Tingkat Keterlambatan</label>
               <select id="filter-durasi-telat" class="select-filter" aria-label="Filter Durasi Telat">
                 <option value="">Semua Tingkat (Termasuk Tepat)</option>
                 <option value="ringan">Ringan (1 - 15 Menit)</option>
@@ -519,23 +519,23 @@
 
             <!-- Filter Pengurutan Data (Sorting) -->
             <div class="filter-item">
-              <label for="filter-sort">🔃 Urutan Tampilan</label>
+              <label for="filter-sort">ðŸ”ƒ Urutan Tampilan</label>
               <select id="filter-sort" class="select-filter" aria-label="Urutkan Data">
-                <option value="telat_desc">🚨 Menit Telat Terlama</option>
+                <option value="telat_desc">ðŸš¨ Menit Telat Terlama</option>
                 <option value="telat_asc">Menit Telat Terpendek</option>
-                <option value="masuk_asc">🌅 Jam Datang Pagi</option>
-                <option value="masuk_desc">☀️ Jam Datang Siang</option>
-                <option value="pulang_asc">⏳ Jam Pulang Lebih Awal</option>
-                <option value="tanggal_desc">📅 Tanggal Terbaru</option>
-                <option value="tanggal_asc">📅 Tanggal Terlama</option>
-                <option value="nama_asc">🔤 Nama Pegawai (A-Z)</option>
-                <option value="nama_desc">🔤 Nama Pegawai (Z-A)</option>
+                <option value="masuk_asc">ðŸŒ… Jam Datang Pagi</option>
+                <option value="masuk_desc">â˜€ï¸ Jam Datang Siang</option>
+                <option value="pulang_asc">â³ Jam Pulang Lebih Awal</option>
+                <option value="tanggal_desc">ðŸ“… Tanggal Terbaru</option>
+                <option value="tanggal_asc">ðŸ“… Tanggal Terlama</option>
+                <option value="nama_asc">ðŸ”¤ Nama Pegawai (A-Z)</option>
+                <option value="nama_desc">ðŸ”¤ Nama Pegawai (Z-A)</option>
               </select>
             </div>
 
             <!-- Page Size Selector -->
             <div class="filter-item filter-item-sm">
-              <label for="filter-page-size">📄 Baris per Halaman</label>
+              <label for="filter-page-size">ðŸ“„ Baris per Halaman</label>
               <select id="filter-page-size" class="select-filter" aria-label="Jumlah Baris per Halaman">
                 <option value="15">15 Baris</option>
                 <option value="25" selected>25 Baris</option>
@@ -592,9 +592,9 @@
             Menampilkan data...
           </div>
           <div class="pagination-controls">
-            <button type="button" class="page-btn" id="btn-page-prev">← Sebelumnya</button>
+            <button type="button" class="page-btn" id="btn-page-prev">â† Sebelumnya</button>
             <span style="font-size:0.8rem; font-weight:600; color:var(--text-muted);" id="pagination-page-num">Halaman 1</span>
-            <button type="button" class="page-btn" id="btn-page-next">Selanjutnya →</button>
+            <button type="button" class="page-btn" id="btn-page-next">Selanjutnya â†’</button>
           </div>
         </div>
       </div>
@@ -612,12 +612,13 @@
                 <th style="text-align:center;">Tepat Waktu</th>
                 <th style="text-align:center;">Terlambat</th>
                 <th style="text-align:center;">Tingkat Disiplin</th>
+                <th style="text-align:center;" title="Dihitung dengan aturan yang sama persis dengan Laporan Rekapitulasi Excel">Rincian Absen (= Export Excel)</th>
                 <th style="text-align:center;">Evaluasi Kepatuhan</th>
               </tr>
             </thead>
             <tbody id="table-body-pegawai">
               <tr>
-                <td colspan="8" class="empty-state">Memuat rekapitulasi pegawai...</td>
+                <td colspan="9" class="empty-state">Memuat rekapitulasi pegawai...</td>
               </tr>
             </tbody>
           </table>
@@ -660,7 +661,7 @@
   <div class="modal-overlay" id="modal-tambah" role="dialog" aria-modal="true" aria-labelledby="modal-tambah-title">
     <div class="modal-card modal-card-tambah">
       <div class="modal-header">
-        <h3 id="modal-tambah-title">➕ Tambah Presensi Pegawai</h3>
+        <h3 id="modal-tambah-title">âž• Tambah Presensi Pegawai</h3>
         <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-tambah')" aria-label="Tutup">&times;</button>
       </div>
       <form id="form-tambah-presensi">
@@ -675,7 +676,7 @@
           <div class="form-group">
             <div class="date-range-label-row">
               <label for="tambah-date-trigger">Tanggal / Rentang Presensi *</label>
-              <span class="date-drag-tip-pill">🖱️ Bisa Drag Tanggal (Misal 1–5)</span>
+              <span class="date-drag-tip-pill">ðŸ–±ï¸ Bisa Drag Tanggal (Misal 1â€“5)</span>
             </div>
 
             <button type="button" id="tambah-date-trigger" class="date-range-trigger" aria-expanded="false" aria-controls="tambah-calendar-panel">
@@ -711,7 +712,7 @@
               </div>
 
               <div class="drag-calendar-hint">
-                <span>🖱️ Klik 1 tanggal, atau <strong>tahan &amp; geser (drag)</strong> pada angka tanggal (misal <strong>1 s/d 5</strong>) untuk rentang Cuti/Izin.</span>
+                <span>ðŸ–±ï¸ Klik 1 tanggal, atau <strong>tahan &amp; geser (drag)</strong> pada angka tanggal (misal <strong>1 s/d 5</strong>) untuk rentang Cuti/Izin.</span>
               </div>
 
               <div class="drag-calendar-weekdays" aria-hidden="true">
@@ -755,8 +756,8 @@
           <div class="form-group">
             <label for="modal-tambah-status">Status Kehadiran</label>
             <select id="modal-tambah-status" class="form-control">
-              <option value="Hadir">Hadir (Hari Kerja — Evaluasi Jam Masuk/Pulang)</option>
-              <option value="Lembur">Lembur (Sabtu / Minggu — Tanpa Jam)</option>
+              <option value="Hadir">Hadir (Hari Kerja â€” Evaluasi Jam Masuk/Pulang)</option>
+              <option value="Lembur">Lembur (Sabtu / Minggu â€” Tanpa Jam)</option>
               <option value="Izin">Izin Resmi (Tanpa Jam)</option>
               <option value="Cuti">Cuti Tahunan / Bersama (Tanpa Jam)</option>
               <option value="Sakit">Sakit (Tanpa Jam)</option>
@@ -798,7 +799,7 @@
   <div class="modal-overlay" id="modal-edit" role="dialog" aria-modal="true">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>✏️ Edit Presensi Pegawai</h3>
+        <h3>âœï¸ Edit Presensi Pegawai</h3>
         <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-edit')">&times;</button>
       </div>
       <form id="form-edit-presensi">
@@ -816,8 +817,8 @@
           <div class="form-group">
             <label for="modal-edit-status">Status Kehadiran</label>
             <select id="modal-edit-status" class="form-control">
-              <option value="Hadir">Hadir (Hari Kerja — Evaluasi Jam Masuk/Pulang)</option>
-              <option value="Lembur">Lembur (Sabtu / Minggu — Tanpa Jam)</option>
+              <option value="Hadir">Hadir (Hari Kerja â€” Evaluasi Jam Masuk/Pulang)</option>
+              <option value="Lembur">Lembur (Sabtu / Minggu â€” Tanpa Jam)</option>
               <option value="Izin">Izin Resmi (Tanpa Jam)</option>
               <option value="Cuti">Cuti Tahunan / Bersama (Tanpa Jam)</option>
               <option value="Sakit">Sakit (Tanpa Jam)</option>
@@ -859,7 +860,7 @@
   <div class="modal-overlay" id="modal-import" role="dialog" aria-modal="true">
     <div class="modal-card" style="max-width: 600px;">
       <div class="modal-header">
-        <h3>📥 Import Berkas Presensi (Excel / Scan)</h3>
+        <h3>ðŸ“¥ Import Berkas Presensi (Excel / Scan)</h3>
         <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-import')">&times;</button>
       </div>
       <div class="modal-body">
@@ -876,7 +877,7 @@
 
         <!-- Drag and drop zone -->
         <div class="dropzone-box" id="import-dropzone" onclick="document.getElementById('input-file-excel').click()">
-          <div class="dropzone-icon">📁</div>
+          <div class="dropzone-icon">ðŸ“</div>
           <div class="dropzone-text">
             <h4>Pilih Berkas Excel atau Tarik ke Sini</h4>
             <p>Mendukung ekstensi <strong>.xls</strong>, <strong>.xlsx</strong>, atau <strong>.csv</strong></p>
@@ -885,7 +886,7 @@
         </div>
 
         <div id="import-loading-indicator" style="display:none; align-items:center; justify-content:center; gap:10px; padding:15px; font-weight:700; color:var(--ut-blue);">
-          <span>⏳ Sedang memproses dan mencocokkan data pegawai...</span>
+          <span>â³ Sedang memproses dan mencocokkan data pegawai...</span>
         </div>
       </div>
       <div class="modal-footer">
@@ -900,7 +901,7 @@
   <div class="modal-overlay" id="modal-import-preview" role="dialog" aria-modal="true">
     <div class="modal-card" style="max-width: 800px;">
       <div class="modal-header">
-        <h3>🔍 Pratinjau Hasil Pembacaan Berkas</h3>
+        <h3>ðŸ” Pratinjau Hasil Pembacaan Berkas</h3>
         <button type="button" class="modal-close-btn" onclick="window.app.closeModal('modal-import-preview')">&times;</button>
       </div>
       <div class="modal-body">
@@ -958,10 +959,10 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-import-preview')">Batal</button>
         <button type="button" class="btn btn-outline" onclick="window.excelImport.commitImport('append')" title="Menambahkan data yang belum ada">
-          <span>➕</span> Gabungkan Data
+          <span>âž•</span> Gabungkan Data
         </button>
         <button type="button" class="btn btn-primary" onclick="window.excelImport.commitImport('replace')" title="Menimpa seluruh data saat ini">
-          <span>⚠️</span> Gantikan Seluruh Data
+          <span>âš ï¸</span> Gantikan Seluruh Data
         </button>
       </div>
     </div>
@@ -974,7 +975,7 @@
     <div class="modal-card" style="max-width: 640px;">
       <div class="modal-header">
         <div>
-          <h3 id="modal-supabase-title">⚡ Live Sync Multi-Perangkat &amp; Cloud</h3>
+          <h3 id="modal-supabase-title">âš¡ Live Sync Multi-Perangkat &amp; Cloud</h3>
           <p style="font-size:0.78rem; color:var(--text-muted); margin-top:2px;">
             Sinkronisasi data presensi secara real-time (live-to-update) antar laptop, HP, dan pengguna.
           </p>
@@ -988,7 +989,7 @@
           <div class="live-sync-stat-box">
             <span class="live-sync-stat-label">Status Kanal Realtime</span>
             <div style="margin-top:4px;">
-              <span id="supabase-status-badge" class="badge-status badge-tepat">● Menghubungkan...</span>
+              <span id="supabase-status-badge" class="badge-status badge-tepat">â— Menghubungkan...</span>
             </div>
           </div>
           <div class="live-sync-stat-box">
@@ -1018,7 +1019,7 @@
 
         <!-- Daftar Perangkat & User Online Saat Ini -->
         <div class="live-section-block">
-          <div class="live-section-title">🟢 Perangkat &amp; Pengguna Online Saat Ini</div>
+          <div class="live-section-title">ðŸŸ¢ Perangkat &amp; Pengguna Online Saat Ini</div>
           <div id="live-sync-peer-list" class="live-peer-list">
             <!-- Diisi otomatis via Supabase Presence -->
           </div>
@@ -1026,7 +1027,7 @@
 
         <!-- Feed Aktivitas Perubahan Data Real-time Antar-User -->
         <div class="live-section-block">
-          <div class="live-section-title">📡 Riwayat Pembaruan Live Antar-User (Sesi Ini)</div>
+          <div class="live-section-title">ðŸ“¡ Riwayat Pembaruan Live Antar-User (Sesi Ini)</div>
           <div id="live-sync-activity-list" class="live-activity-list">
             <div class="live-activity-empty">Menunggu aktivitas perubahan presensi antar-perangkat...</div>
           </div>
@@ -1035,19 +1036,19 @@
         <!-- Tombol Aksi Sinkronisasi Cepat -->
         <div style="display:flex; gap:8px; margin-top:14px; flex-wrap:wrap;">
           <button type="button" id="btn-sync-now-supabase" class="btn btn-primary btn-sm" onclick="window.supabaseSync.syncNow()">
-            🔄 Sinkronkan Sekarang
+            ðŸ”„ Sinkronkan Sekarang
           </button>
           <button type="button" id="btn-pull-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.pull()">
-            ⬇ Tarik Data Cloud
+            â¬‡ Tarik Data Cloud
           </button>
           <button type="button" id="btn-push-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.push()">
-            ⬆ Unggah ke Cloud
+            â¬† Unggah ke Cloud
           </button>
         </div>
 
         <!-- Konfigurasi Lanjutan Endpoint Supabase (Collapsible agar rapi) -->
         <details class="live-config-details">
-          <summary>⚙️ Pengaturan Endpoint Database Supabase (Lanjutan)</summary>
+          <summary>âš™ï¸ Pengaturan Endpoint Database Supabase (Lanjutan)</summary>
           <div class="live-config-body">
             <div class="form-group">
               <label for="supabase-url">Supabase Project URL *</label>
@@ -1062,7 +1063,7 @@
             <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
               <small style="color:var(--text-muted); font-size:0.75rem;">Skema SQL tersedia di <code>supabase/schema.sql</code>.</small>
               <button type="button" id="btn-test-supabase" class="btn btn-outline btn-sm" onclick="window.supabaseSync.testConnection()">
-                ⚡ Simpan &amp; Uji Koneksi
+                âš¡ Simpan &amp; Uji Koneksi
               </button>
             </div>
           </div>
@@ -1082,7 +1083,7 @@
     <div class="modal-card" style="max-width: 860px;">
       <div class="modal-header">
         <div>
-          <h3>📚 Kamus Data & Referensi Database FHISIP UT</h3>
+          <h3>ðŸ“š Kamus Data & Referensi Database FHISIP UT</h3>
           <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
             Panduan standarisasi data presensi biometrik untuk referensi pengolahan periode berikutnya.
           </p>
@@ -1095,7 +1096,7 @@
         <div class="db-ref-grid">
           <div class="db-ref-card" style="border-left: 4px solid var(--ut-blue);">
             <div class="db-ref-card-header">
-              <div class="db-ref-icon">📅</div>
+              <div class="db-ref-icon">ðŸ“…</div>
               <div>
                 <h4>Database September 2026</h4>
                 <p>Hasil olah data biometrik resmi (Sheet1 & Tarikan Data Baru)</p>
@@ -1119,7 +1120,7 @@
 
           <div class="db-ref-card" style="border-left: 4px solid #10B981;">
             <div class="db-ref-card-header">
-              <div class="db-ref-icon" style="background:#ECFDF5; color:#10B981;">📅</div>
+              <div class="db-ref-icon" style="background:#ECFDF5; color:#10B981;">ðŸ“…</div>
               <div>
                 <h4>Database Oktober 2026</h4>
                 <p>Data presensi berjalan operasional FHISIP UT</p>
@@ -1143,7 +1144,7 @@
 
           <div class="db-ref-card" style="border-left: 4px solid var(--ut-gold);">
             <div class="db-ref-card-header">
-              <div class="db-ref-icon" style="background:var(--ut-gold-light); color:#92400E;">🏛</div>
+              <div class="db-ref-icon" style="background:var(--ut-gold-light); color:#92400E;">ðŸ›</div>
               <div>
                 <h4>13 Unit Resmi FHISIP</h4>
                 <p>Dekanat, 3 Bagian TU, dan 9 Program Studi S1</p>
@@ -1164,7 +1165,7 @@
 
         <!-- Standarisasi Format Kolom (Kamus Data) -->
         <h4 style="font-size:0.9rem; color:var(--ut-navy); margin-bottom:8px; display:flex; align-items:center; gap:6px;">
-          <span>📋</span> Standarisasi Struktur Kolom (Kamus Data Sistem)
+          <span>ðŸ“‹</span> Standarisasi Struktur Kolom (Kamus Data Sistem)
         </h4>
         <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">
           Gunakan susunan dan format nilai kolom berikut saat menyiapkan data bulan berikutnya agar dapat terbaca otomatis oleh sistem tanpa error:
@@ -1245,26 +1246,26 @@
         <!-- Download Buttons Reference Section -->
         <div style="background:#F1F5F9; border:1px solid #CBD5E1; border-radius:8px; padding:14px; margin-top:14px;">
           <h4 style="font-size:0.88rem; color:var(--ut-navy); margin-bottom:8px;">
-            📥 Berkas Database Live Terupdate &amp; Template Siap Unduh:
+            ðŸ“¥ Berkas Database Live Terupdate &amp; Template Siap Unduh:
           </h4>
           <div style="display:flex; gap:10px; flex-wrap:wrap;">
             <button type="button" class="btn btn-primary btn-sm" onclick="window.app.exportLiveDatabaseXlsx('')">
-              <span>📊</span> Unduh Database Live Semua Bulan (.xlsx)
+              <span>ðŸ“Š</span> Unduh Database Live Semua Bulan (.xlsx)
             </button>
             <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportLiveDatabaseXlsx('2026-09')" style="background:#FFF;">
-              <span>📅</span> September 2026 Live (.xlsx)
+              <span>ðŸ“…</span> September 2026 Live (.xlsx)
             </button>
             <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportLiveDatabaseXlsx('2026-10')" style="background:#FFF;">
-              <span>📅</span> Oktober 2026 Live (.xlsx)
+              <span>ðŸ“…</span> Oktober 2026 Live (.xlsx)
             </button>
             <button type="button" class="btn btn-outline btn-sm" onclick="window.monthlyReportGenerator.exportMonthlyTemplateExcel({ genericFilename: true })" style="background:#FFF;">
-              <span>📑</span> Template Rekap Bulanan Resmi (.xlsx)
+              <span>ðŸ“‘</span> Template Rekap Bulanan Resmi (.xlsx)
             </button>
             <a href="Template_Format_Presensi_FHISIP.xlsx" download="Template_Format_Presensi_FHISIP.xlsx" class="btn btn-outline btn-sm" style="text-decoration:none; background:#FFF;">
-              <span>📋</span> Template Input Presensi Harian (.xlsx)
+              <span>ðŸ“‹</span> Template Input Presensi Harian (.xlsx)
             </a>
             <button type="button" class="btn btn-outline btn-sm" onclick="window.app.exportToCsv(false)" style="background:#FFF;">
-              <span>📁</span> Database Terpadu Live (CSV)
+              <span>ðŸ“</span> Database Terpadu Live (CSV)
             </button>
           </div>
         </div>
@@ -1283,7 +1284,7 @@
     <div class="modal-card" style="max-width: 720px;">
       <div class="modal-header">
         <div>
-          <h3>📑 Ekspor Laporan Rekapitulasi Kehadiran Bulanan</h3>
+          <h3>ðŸ“‘ Ekspor Laporan Rekapitulasi Kehadiran Bulanan</h3>
           <p style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
             Menghasilkan berkas Excel (.xlsx) langsung dari <strong>data live terupdate di Dashboard &amp; Cloud</strong> lengkap kop tanda tangan Dekan FHISIP UT.
           </p>
@@ -1294,7 +1295,7 @@
         
         <form id="form-export-monthly" onsubmit="event.preventDefault(); handleExecuteMonthlyExport();">
           <div class="form-group">
-            <label for="export-month-select">📅 Pilih Periode Bulan Laporan</label>
+            <label for="export-month-select">ðŸ“… Pilih Periode Bulan Laporan</label>
             <select id="export-month-select" class="form-control" style="font-weight:600;" onchange="handleExportMonthChange(this.value)">
               <option value="2026-09">September 2026 (Memuat data live...)</option>
               <option value="2026-10" selected>Oktober 2026 (Memuat data live...)</option>
@@ -1307,7 +1308,7 @@
           </div>
 
           <div class="form-group" style="margin-top:14px;">
-            <label>👥 Format Pengelompokan Pegawai</label>
+            <label>ðŸ‘¥ Format Pengelompokan Pegawai</label>
             <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
               <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
                 <input type="radio" name="export-group-by" value="kategori" checked>
@@ -1321,13 +1322,13 @@
           </div>
 
           <div class="form-group" style="margin-top:14px;">
-            <label for="export-signature-date">✍️ Tanggal Pengesahan / Tanda Tangan Laporan</label>
+            <label for="export-signature-date">âœï¸ Tanggal Pengesahan / Tanda Tangan Laporan</label>
             <input type="date" id="export-signature-date" class="form-control" value="2026-10-31">
             <small style="color:var(--text-muted); font-size:0.75rem;">Akan tercantum pada blok tanda tangan Dekan FHISIP-UT (Tangerang Selatan).</small>
           </div>
 
           <div style="background:#F0FDF4; border:1px solid #BBF7D0; border-radius:8px; padding:12px; margin-top:16px; font-size:0.8rem; color:#166534; line-height:1.45;">
-            <strong>✨ Desain &amp; Template Resmi Laporan Rekapitulasi UT (38 Kolom A–AL):</strong>
+            <strong>âœ¨ Desain &amp; Template Resmi Laporan Rekapitulasi UT (38 Kolom Aâ€“AL):</strong>
             <ul style="margin-left:18px; margin-top:4px;">
               <li>Desain Visual Identik: Font <code>Times New Roman 10pt</code>, garis kop laporan, border tabel penuh, <code>Page Break Preview</code> 120% (A4 Landscape), &amp; <code>Print Titles</code> baris <code>10:11</code>.</li>
               <li>Seksi Beruntun Biometrik: <code>ADMINISTRASI</code>, <code>DOSEN</code>, <code>PTNPNS</code>, dan <code>FHISIP</code> sesuai urutan <code>No. ID</code> resmi lengkap <code>Total: N</code> per seksi &amp; <code>Grand Total</code>.</li>
@@ -1339,13 +1340,13 @@
           <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px; flex-wrap:wrap;">
             <button type="button" class="btn btn-outline" onclick="window.app.closeModal('modal-export-monthly')">Batal</button>
             <button type="button" id="btn-submit-monthly-template" class="btn btn-outline" onclick="handleExecuteMonthlyExport('template')" title="Unduh template kosong berdesain resmi lengkap daftar pegawai &amp; rumus otomatis siap isi">
-              <span>📋</span> Template Rekap Resmi (.xlsx)
+              <span>ðŸ“‹</span> Template Rekap Resmi (.xlsx)
             </button>
             <button type="button" class="btn btn-outline" onclick="handleExecuteMonthlyExport('csv')" title="Unduh struktur Laporan Rekapitulasi dalam format .csv">
-              <span>📄</span> Unduh CSV Rekap
+              <span>ðŸ“„</span> Unduh CSV Rekap
             </button>
             <button type="button" id="btn-submit-monthly-export" class="btn btn-primary" onclick="handleExecuteMonthlyExport('xlsx')" style="background:#0F766E; border-color:#0F766E;">
-              <span>📊</span> Unduh Laporan Excel Resmi (.xlsx)
+              <span>ðŸ“Š</span> Unduh Laporan Excel Resmi (.xlsx)
             </button>
           </div>
         </form>
@@ -1354,13 +1355,13 @@
           <span style="font-size:0.78rem; font-weight:700; color:var(--text-muted);">Unduhan Cepat Rekapitulasi Live &amp; Template Resmi UT:</span>
           <div style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">
             <button type="button" class="btn btn-outline btn-xs" onclick="window.monthlyReportGenerator.exportMonthlyExcel({ year: 2026, month: 9, groupBy: 'kategori' }); window.app.closeModal('modal-export-monthly');">
-              📥 Rekap September 2026 Resmi (<span id="quick-export-sept-count">Live</span>)
+              ðŸ“¥ Rekap September 2026 Resmi (<span id="quick-export-sept-count">Live</span>)
             </button>
             <button type="button" class="btn btn-outline btn-xs" onclick="window.monthlyReportGenerator.exportMonthlyExcel({ year: 2026, month: 10, groupBy: 'kategori' }); window.app.closeModal('modal-export-monthly');">
-              📥 Rekap Oktober 2026 Resmi (<span id="quick-export-oct-count">Live</span>)
+              ðŸ“¥ Rekap Oktober 2026 Resmi (<span id="quick-export-oct-count">Live</span>)
             </button>
             <button type="button" class="btn btn-outline btn-xs" onclick="window.monthlyReportGenerator.exportMonthlyTemplateExcel({ genericFilename: true }); window.app.closeModal('modal-export-monthly');">
-              📋 Template Kosong Siap Isi (.xlsx)
+              ðŸ“‹ Template Kosong Siap Isi (.xlsx)
             </button>
           </div>
         </div>
@@ -1376,14 +1377,14 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js?v=2.7"></script>
-  <script src="js/storage-manager.js?v=2.7"></script>
-  <script src="js/excel-import.js?v=2.7"></script>
-  <script src="js/excel-rekap-template-assets.js?v=2.7"></script>
-  <script src="js/excel-monthly-report.js?v=2.7"></script>
-  <script src="js/pdf-export.js?v=2.7"></script>
-  <script src="js/supabase-client.js?v=2.7"></script>
-  <script src="js/app.js?v=2.7"></script>
+  <script src="js/data-fhisip.js?v=2.8"></script>
+  <script src="js/storage-manager.js?v=2.8"></script>
+  <script src="js/excel-import.js?v=2.8"></script>
+  <script src="js/excel-rekap-template-assets.js?v=2.8"></script>
+  <script src="js/excel-monthly-report.js?v=2.8"></script>
+  <script src="js/pdf-export.js?v=2.8"></script>
+  <script src="js/supabase-client.js?v=2.8"></script>
+  <script src="js/app.js?v=2.8"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.updateSelectedMonthPreview === 'function') {

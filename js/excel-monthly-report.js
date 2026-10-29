@@ -1187,6 +1187,174 @@
     `;
   }
 
+  // Prioritas status per hari kerja bila satu pegawai memiliki >1 catatan pada tanggal yang sama
+  const DAY_STATUS_PRIORITY = ['Hadir', 'Dinas Luar', 'Tugas Belajar', 'Cuti', 'Sakit', 'Izin', 'Alpha'];
+
+  function isWeekendYmdStr(ymd) {
+    const p = String(ymd || '').slice(0, 10).split('-').map(Number);
+    if (p.length !== 3 || p.some(isNaN)) return false;
+    const dow = new Date(p[0], p[1] - 1, p[2]).getDay();
+    return dow === 0 || dow === 6;
+  }
+
+  /**
+   * MESIN AGREGASI BERSAMA (Dashboard "Rekap per Pegawai" <-> Luaran Export Excel)
+   * Setiap kolom ketidakhadiran dihitung HANYA dari catatan nyata di Dashboard:
+   * - D.Luar (T)  = catatan "Dinas Luar" pada hari kerja
+   * - Sakit (Z), Cuti (AA), Ijin (AC) = catatan Sakit / Cuti / Izin pada hari kerja
+   * - Tanpa Keterangan (S) = catatan "Alpha" + hari kerja yang belum memiliki catatan apa pun
+   * - Riil = hari kerja dengan scan Hadir, Absen (M) = Normal - Riil = S + T + Z + AA + AC
+   * - Lmbr (R) = catatan Lembur Sabtu/Minggu
+   */
+  function aggregateEmployeeRecap(records, opts = {}) {
+    const pegawaiList = Array.isArray(opts.pegawaiList) ? opts.pegawaiList : [];
+    const startDate = String(opts.startDate || '').slice(0, 10);
+    const endDate = String(opts.endDate || '').slice(0, 10);
+    const isBlankTemplate = Boolean(opts.isBlankTemplate);
+    const workingDaysNormal = getWorkingDaysInRange(startDate, endDate);
+    const inRange = (ymd) => (!startDate || ymd >= startDate) && (!endDate || ymd <= endDate);
+
+    function createEmpBucket(p) {
+      const nipStr = String(p.nip || '').trim();
+      const bio = resolveBiometricMeta(p);
+      return {
+        nip: nipStr,
+        nama_lengkap: bio.displayName,
+        unit_kerja: p.unit_kerja || 'FHISIP',
+        pin: bio.pin,
+        group: bio.group,
+        subGroup: bio.subGroup,
+        order: bio.order,
+        tugasBelajar: bio.tugasBelajarDefault,
+        normalDays: workingDaysNormal,
+        dayStatus: new Map(),
+        terlambat: 0,
+        pulangCepat: 0,
+        lembur: 0,
+        hasAnyRecord: false,
+        specialNotes: [],
+        adminNotes: []
+      };
+    }
+
+    const empMap = new Map();
+    for (const p of pegawaiList) {
+      if (!p || !p.nip) continue;
+      empMap.set(String(p.nip).trim(), createEmpBucket(p));
+    }
+
+    for (const r of (isBlankTemplate ? [] : records)) {
+      if (!r || !r.nip) continue;
+      const nipKey = canonicalizeNip(r.nip);
+      if (!nipKey) continue;
+      if (!empMap.has(nipKey)) {
+        empMap.set(nipKey, createEmpBucket({ nip: nipKey, nama_lengkap: r.nama_lengkap, unit_kerja: r.unit_kerja }));
+      }
+
+      const agg = empMap.get(nipKey);
+      agg.hasAnyRecord = true;
+      const effStatus = r.status_kehadiran || 'Hadir';
+      const ymd = String(r.tanggal || '').slice(0, 10);
+
+      if (r.isLembur || effStatus === 'Lembur') {
+        agg.lembur++;
+      } else if (ymd && inRange(ymd) && !isWeekendYmdStr(ymd)) {
+        if (effStatus === 'Hadir') {
+          if (r.isTerlambat) agg.terlambat++;
+          if (r.isPulangCepat) agg.pulangCepat++;
+        }
+        if (effStatus === 'Tugas Belajar') agg.tugasBelajar = true;
+        const prev = agg.dayStatus.get(ymd);
+        const rank = DAY_STATUS_PRIORITY.indexOf(effStatus);
+        if (rank >= 0 && (prev === undefined || rank < DAY_STATUS_PRIORITY.indexOf(prev))) {
+          agg.dayStatus.set(ymd, effStatus);
+        }
+      }
+
+      if (r.keterangan && isMeaningfulSpecialNote(r.keterangan)) {
+        const cleanNote = String(r.keterangan).trim();
+        if (/^(form belum|blm mengajukan|belum mengajukan)/i.test(cleanNote)) {
+          agg.adminNotes.push(cleanNote.toUpperCase());
+        } else {
+          agg.specialNotes.push(cleanNote);
+        }
+      }
+    }
+
+    const effectiveCount = isBlankTemplate ? 0 : records.length;
+    let activeEmps = isBlankTemplate
+      ? Array.from(empMap.values())
+      : Array.from(empMap.values()).filter(
+          e => e.hasAnyRecord || (!opts.onlyMatchedEmployees && e.tugasBelajar && effectiveCount > 0)
+        );
+    if (activeEmps.length === 0 && !opts.onlyMatchedEmployees) {
+      activeEmps = Array.from(empMap.values());
+    }
+
+    for (const emp of activeEmps) {
+      if (isBlankTemplate) {
+        Object.assign(emp, {
+          tugasBelajar: false, riilDays: emp.normalDays, absenDays: 0, terlambat: 0, pulangCepat: 0,
+          lembur: 0, tanpaKeterangan: 0, tanpaCatatan: 0, dinasLuar: 0, sakit: 0, cuti: 0, izin: 0,
+          specialNotes: [], adminNotes: []
+        });
+        continue;
+      }
+
+      const c = { Hadir: 0, 'Dinas Luar': 0, 'Tugas Belajar': 0, Cuti: 0, Sakit: 0, Izin: 0, Alpha: 0 };
+      for (const st of emp.dayStatus.values()) c[st]++;
+
+      const recordedDays = Object.values(c).reduce((a, b) => a + b, 0);
+      emp.riilDays = Math.min(emp.normalDays, c.Hadir);
+      emp.absenDays = Math.max(0, emp.normalDays - emp.riilDays);
+      emp.tanpaCatatan = Math.max(0, emp.normalDays - recordedDays);
+
+      if (emp.tugasBelajar && emp.riilDays === 0) {
+        Object.assign(emp, { tanpaKeterangan: 0, dinasLuar: 0, sakit: 0, cuti: 0, izin: 0, tanpaCatatan: 0 });
+        if (!emp.specialNotes.includes('Tugas Belajar')) emp.specialNotes.unshift('Tugas Belajar');
+      } else {
+        emp.dinasLuar = c['Dinas Luar'] + c['Tugas Belajar'];
+        emp.sakit = c.Sakit;
+        emp.cuti = c.Cuti;
+        emp.izin = c.Izin;
+        emp.tanpaKeterangan = c.Alpha + emp.tanpaCatatan;
+        if (c['Tugas Belajar'] > 0 && !emp.specialNotes.includes('Tugas Belajar')) {
+          emp.specialNotes.unshift('Tugas Belajar');
+        }
+      }
+    }
+
+    return { empMap, activeEmps, workingDaysNormal, startDate, endDate };
+  }
+
+  /**
+   * Rincian per pegawai (Map NIP -> angka) untuk ditampilkan di Dashboard,
+   * memakai rentang tanggal & aturan yang sama persis dengan ekspor Excel.
+   */
+  function computeEmployeeBreakdown(records, options = {}) {
+    const list = Array.isArray(records) ? records : [];
+    const dates = [...new Set(list.map(a => String(a.tanggal || '').slice(0, 10)).filter(Boolean))].sort();
+    const pegawaiList = (window.app && typeof window.app.getPegawaiList === 'function')
+      ? window.app.getPegawaiList()
+      : (window.INITIAL_FHISIP_DATA ? window.INITIAL_FHISIP_DATA.pegawai : []);
+    const result = aggregateEmployeeRecap(list, {
+      pegawaiList,
+      startDate: options.startDate || dates[0] || '',
+      endDate: options.endDate || dates[dates.length - 1] || ''
+    });
+    const out = new Map();
+    for (const e of result.activeEmps) {
+      out.set(e.nip, {
+        normalDays: e.normalDays, riilDays: e.riilDays, absenDays: e.absenDays,
+        terlambat: e.terlambat, pulangCepat: e.pulangCepat, lembur: e.lembur,
+        dinasLuar: e.dinasLuar, sakit: e.sakit, cuti: e.cuti, izin: e.izin,
+        tanpaKeterangan: e.tanpaKeterangan, tanpaCatatan: e.tanpaCatatan || 0,
+        tugasBelajar: Boolean(e.tugasBelajar && e.riilDays === 0)
+      });
+    }
+    return { byNip: out, startDate: result.startDate, endDate: result.endDate, normalDays: result.workingDaysNormal };
+  }
+
   /**
    * Mesin Inti Pembangun Workbook "Laporan Rekapitulasi" (38 Kolom A..AL)
    * Sesuai persis contoh luaran Excel resmi FHISIP UT
@@ -1217,158 +1385,15 @@
     const periodeStr = `Dari ${formatYmdToDmyDash(startDate)} s/d ${formatYmdToDmyDash(endDate)}`;
     const headerSubtitle = options.headerSubtitle || `(FHISIP ${MONTH_NAMES[fallbackMonth - 1]} ${fallbackYear})`;
 
-    const workingDaysNormal = getWorkingDaysInRange(startDate, endDate);
-
-    function createEmpBucket(p) {
-      const nipStr = String(p.nip || '').trim();
-      const bio = resolveBiometricMeta(p);
-      return {
-        nip: nipStr,
-        nama_lengkap: bio.displayName,
-        unit_kerja: p.unit_kerja || 'FHISIP',
-        pin: bio.pin,
-        group: bio.group,
-        subGroup: bio.subGroup,
-        order: bio.order,
-        tugasBelajar: bio.tugasBelajarDefault,
-        normalDays: workingDaysNormal,
-        hadirDates: new Set(),
-        terlambat: 0,
-        pulangCepat: 0,
-        lembur: 0,
-        tanpaKeteranganExplicit: 0,
-        dinasLuarExplicit: 0,
-        sakit: 0,
-        cuti: 0,
-        izin: 0,
-        hasAnyRecord: false,
-        specialNotes: [],
-        adminNotes: []
-      };
-    }
-
-    const empMap = new Map();
-    for (const p of pegawaiList) {
-      if (!p || !p.nip) continue;
-      const nipKey = String(p.nip).trim();
-      empMap.set(nipKey, createEmpBucket(p));
-    }
-
-    // Agregasi catatan presensi live dari Dashboard
-    for (const r of effectiveRecords) {
-      if (!r || !r.nip) continue;
-      const nipKey = canonicalizeNip(r.nip);
-      if (!nipKey) continue;
-
-      if (!empMap.has(nipKey)) {
-        empMap.set(nipKey, createEmpBucket({
-          nip: nipKey,
-          nama_lengkap: r.nama_lengkap,
-          unit_kerja: r.unit_kerja
-        }));
-      }
-
-      const agg = empMap.get(nipKey);
-      agg.hasAnyRecord = true;
-      const effStatus = r.status_kehadiran || 'Hadir';
-      const ymd = (r.tanggal || '').slice(0, 10);
-
-      if (r.isLembur || effStatus === 'Lembur') {
-        agg.lembur++;
-      } else if (effStatus === 'Hadir') {
-        agg.hadirDates.add(ymd);
-        if (r.isTerlambat) agg.terlambat++;
-        if (r.isPulangCepat) agg.pulangCepat++;
-      } else if (effStatus === 'Cuti') {
-        agg.cuti++;
-      } else if (effStatus === 'Sakit') {
-        agg.sakit++;
-      } else if (effStatus === 'Izin') {
-        agg.izin++;
-      } else if (effStatus === 'Tugas Belajar') {
-        agg.tugasBelajar = true;
-      } else if (effStatus === 'Dinas Luar') {
-        agg.dinasLuarExplicit++;
-      } else if (effStatus === 'Alpha') {
-        agg.tanpaKeteranganExplicit++;
-      }
-
-      if (r.keterangan && isMeaningfulSpecialNote(r.keterangan)) {
-        const cleanNote = String(r.keterangan).trim();
-        if (/^(form belum|blm mengajukan|belum mengajukan)/i.test(cleanNote)) {
-          agg.adminNotes.push(cleanNote.toUpperCase());
-        } else {
-          agg.specialNotes.push(cleanNote);
-        }
-      }
-    }
-
-    // Filter pegawai yang aktif pada data laporan (serta pegawai Tugas Belajar jika laporan bulanan penuh)
-    const includeTugasBelajar = !options.onlyMatchedEmployees;
-    let activeEmps = isBlankTemplate
-      ? Array.from(empMap.values())
-      : Array.from(empMap.values()).filter(
-          e => e.hasAnyRecord || (includeTugasBelajar && e.tugasBelajar && effectiveRecords.length > 0)
-        );
-
-    if (activeEmps.length === 0 && !options.onlyMatchedEmployees) {
-      activeEmps = Array.from(empMap.values());
-    }
-
-    // Finalisasi perhitungan Normal, Riil, Absen, D.Luar, Cuti, Sakit, Ijin per pegawai
-    for (const emp of activeEmps) {
-      if (isBlankTemplate) {
-        emp.tugasBelajar = false;
-        emp.riilDays = emp.normalDays;
-        emp.absenDays = 0;
-        emp.terlambat = 0;
-        emp.pulangCepat = 0;
-        emp.lembur = 0;
-        emp.tanpaKeterangan = 0;
-        emp.dinasLuar = 0;
-        emp.sakit = 0;
-        emp.cuti = 0;
-        emp.izin = 0;
-        emp.specialNotes = [];
-        emp.adminNotes = [];
-        continue;
-      }
-
-      const riilDays = Math.min(emp.normalDays, emp.hadirDates.size);
-      const absenDays = Math.max(0, emp.normalDays - riilDays);
-
-      emp.riilDays = riilDays;
-      emp.absenDays = absenDays;
-
-      if (emp.tugasBelajar && riilDays === 0) {
-        emp.tanpaKeterangan = 0;
-        emp.dinasLuar = 0;
-        emp.sakit = 0;
-        emp.cuti = 0;
-        emp.izin = 0;
-        if (!emp.specialNotes.includes('Tugas Belajar')) {
-          emp.specialNotes.unshift('Tugas Belajar');
-        }
-      } else {
-        // Pastikan komponen ketidakhadiran (S + T + Z + AA + AC) = M (Absen) secara presisi seperti contoh resmi
-        let remAbsen = absenDays;
-        const useSakit = Math.min(remAbsen, emp.sakit);
-        remAbsen -= useSakit;
-        const useCuti = Math.min(remAbsen, emp.cuti);
-        remAbsen -= useCuti;
-        const useIzin = Math.min(remAbsen, emp.izin);
-        remAbsen -= useIzin;
-        const useAlpha = Math.min(remAbsen, emp.tanpaKeteranganExplicit);
-        remAbsen -= useAlpha;
-
-        // Sisa hari kerja tanpa scan masuk/cuti/sakit/izin tercatat sebagai D.Luar (T), persis standar contoh biometrik UT
-        emp.sakit = useSakit;
-        emp.cuti = useCuti;
-        emp.izin = useIzin;
-        emp.tanpaKeterangan = useAlpha;
-        emp.dinasLuar = remAbsen;
-      }
-    }
+    // Agregasi bersama (identik dengan tab "Rekap per Pegawai" di Dashboard)
+    const aggregated = aggregateEmployeeRecap(effectiveRecords, {
+      pegawaiList,
+      startDate,
+      endDate,
+      isBlankTemplate,
+      onlyMatchedEmployees: Boolean(options.onlyMatchedEmployees)
+    });
+    const activeEmps = aggregated.activeEmps;
 
     // Susun blok seksi (Run-Length Grouping sesuai urutan No. ID Biometrik atau Per Prodi)
     const sectionBlocks = [];
@@ -2038,6 +2063,7 @@
   window.monthlyReportGenerator = {
     buildRecapWorkbookFromRecords,
     buildMonthlyWorkbook,
+    computeEmployeeBreakdown,
     exportMonthlyExcel,
     exportMonthlyTemplateExcel,
     exportMonthlyCsv,

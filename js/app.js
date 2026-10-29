@@ -233,7 +233,7 @@
     }
 
     if (!options.skipCloud && window.supabaseSync && typeof window.supabaseSync.syncConfigToCloud === 'function') {
-      window.supabaseSync.syncConfigToCloud(state.config).catch(() => {});
+      window.supabaseSync.syncConfigToCloud(state.config).catch(() => { });
     }
   }
 
@@ -279,7 +279,7 @@
       let parsed = null;
       try {
         if (syncList) parsed = JSON.parse(syncList);
-      } catch (e) {}
+      } catch (e) { }
 
       // Jika pengguna sudah memiliki data tersimpan (termasuk jika berkurang akibat hapus data)
       if (parsed && Array.isArray(parsed) && (meta.isInitialized || parsed.length > 0)) {
@@ -1214,6 +1214,11 @@
       }
     });
 
+    // Rincian ketidakhadiran memakai mesin yang SAMA dengan ekspor Excel (D.Luar, Sakit, Cuti, Ijin, Tanpa Keterangan)
+    const breakdown = (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.computeEmployeeBreakdown === 'function')
+      ? window.monthlyReportGenerator.computeEmployeeBreakdown(allEvaluated)
+      : null;
+
     const rows = pegawaiPool.map(p => {
       const agg = rekapMap.get(p.nip) || {
         totalHadir: 0,
@@ -1226,16 +1231,40 @@
       };
 
       const pctDisiplin = agg.totalHadir > 0 ? ((agg.tepatCount / agg.totalHadir) * 100).toFixed(1) : 100;
-      return { ...p, ...agg, pctDisiplin: Number(pctDisiplin) };
+      const rincian = breakdown ? (breakdown.byNip.get(String(p.nip).trim()) || null) : null;
+      return { ...p, ...agg, pctDisiplin: Number(pctDisiplin), rincian };
     });
 
     // Urutkan default: yang paling banyak telat di paling atas
     rows.sort((a, b) => b.totalMenitTelat - a.totalMenitTelat || b.telatCount - a.telatCount);
 
     if (rows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="8" class="empty-state">Tidak ada data pegawai yang sesuai.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9" class="empty-state">Tidak ada data pegawai yang sesuai.</td></tr>`;
       return;
     }
+
+    const renderRincianCell = (rc) => {
+      if (!rc) return `<span style="color:var(--text-muted); font-size:0.78rem;">Tidak masuk laporan</span>`;
+      if (rc.tugasBelajar) return `<span class="badge-kepegawaian" style="background:#F5F3FF; color:#5B21B6;">🎓 Tugas Belajar</span>`;
+      const parts = [
+        ['D.Luar', rc.dinasLuar, '#EFF6FF', '#1E40AF', 'Dinas Luar'],
+        ['Sakit', rc.sakit, '#FEF2F2', '#991B1B', 'Sakit'],
+        ['Cuti', rc.cuti, '#ECFDF5', '#065F46', 'Cuti'],
+        ['Ijin', rc.izin, '#FFFBEB', '#92400E', 'Izin'],
+        ['Tanpa Ket.', rc.tanpaKeterangan, '#F1F5F9', '#334155',
+          rc.tanpaCatatan > 0 ? `Alpha + ${rc.tanpaCatatan} hari kerja belum ada catatan presensi` : 'Alpha']
+      ].filter(x => x[1] > 0);
+      const chips = parts.map(([lbl, n, bg, fg, tip]) =>
+        `<span class="badge-kepegawaian" style="background:${bg}; color:${fg};" title="${escapeHtml(tip)}">${lbl} ${n}</span>`
+      ).join(' ');
+      return `
+        <div style="font-weight:700; font-size:0.82rem;" title="Normal ${rc.normalDays} hari kerja • Riil ${rc.riilDays}">
+          ${rc.absenDays} / ${rc.normalDays} hari
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:3px; justify-content:center; margin-top:3px;">
+          ${chips || '<span style="color:var(--success-text); font-size:0.75rem;">Hadir penuh</span>'}
+        </div>`;
+    };
 
     tbody.innerHTML = rows.map((p, idx) => {
       let kepatuhanBadge = `<span class="badge-status badge-tepat">Sangat Baik</span>`;
@@ -1249,7 +1278,20 @@
       if (p.lemburCount > 0) {
         extraChips.push(`<span class="weekend-day-tag" title="Lembur Sabtu/Minggu">🗓️ ${p.lemburCount} Lembur</span>`);
       }
-      if (p.izinCount > 0) {
+      if (p.rincian) {
+        if (p.rincian.dinasLuar > 0) {
+          extraChips.push(`<span class="badge-kepegawaian" style="background:#EFF6FF; color:#1E40AF;" title="Dinas Luar">✈️ ${p.rincian.dinasLuar} Dinas</span>`);
+        }
+        if (p.rincian.cuti > 0) {
+          extraChips.push(`<span class="badge-kepegawaian" style="background:#ECFDF5; color:#065F46;" title="Cuti">🏖️ ${p.rincian.cuti} Cuti</span>`);
+        }
+        if (p.rincian.sakit > 0) {
+          extraChips.push(`<span class="badge-kepegawaian" style="background:#FEF2F2; color:#991B1B;" title="Sakit">🏥 ${p.rincian.sakit} Sakit</span>`);
+        }
+        if (p.rincian.izin > 0) {
+          extraChips.push(`<span class="badge-kepegawaian" style="background:#FFFBEB; color:#92400E;" title="Izin">📝 ${p.rincian.izin} Izin</span>`);
+        }
+      } else if (p.izinCount > 0) {
         extraChips.push(`<span class="badge-kepegawaian" style="background:#EFF6FF; color:#1E40AF;" title="Izin / Cuti / Sakit / Dinas Luar">📄 ${p.izinCount} Izin/Cuti/Sakit/Dinas</span>`);
       }
 
@@ -1270,13 +1312,14 @@
           <td style="text-align:center; font-weight:700;">${p.totalHadir}</td>
           <td style="text-align:center; font-weight:700; color:var(--success-text);">${p.tepatCount}</td>
           <td style="text-align:center;">
-            ${p.telatCount > 0 
-              ? `<strong style="color:var(--danger-text);">${p.telatCount}x</strong> <small style="color:var(--text-muted);">(${p.totalMenitTelat} mnt)</small>` 
-              : `<span style="color:var(--success-text);">0</span>`}
+            ${p.telatCount > 0
+          ? `<strong style="color:var(--danger-text);">${p.telatCount}x</strong> <small style="color:var(--text-muted);">(${p.totalMenitTelat} mnt)</small>`
+          : `<span style="color:var(--success-text);">0</span>`}
           </td>
           <td style="text-align:center;">
             <div style="font-weight:700; color:${p.pctDisiplin >= 95 ? 'var(--success-text)' : 'var(--danger-text)'};">${p.pctDisiplin}%</div>
           </td>
+          <td style="text-align:center; min-width:150px;">${renderRincianCell(p.rincian)}</td>
           <td style="text-align:center;">${kepatuhanBadge}</td>
         </tr>
       `;
@@ -2084,7 +2127,7 @@
 
         try {
           grid.setPointerCapture(event.pointerId);
-        } catch (_) {}
+        } catch (_) { }
 
         setTambahDateRange(ymd, ymd, { syncTimeFields: false, keepCalendarMonth: true });
       });
@@ -2117,7 +2160,7 @@
             if (grid.hasPointerCapture(event.pointerId)) {
               grid.releasePointerCapture(event.pointerId);
             }
-          } catch (_) {}
+          } catch (_) { }
         }
 
         // Jika memilih 1 tanggal di luar bulan aktif, pindahkan tampilan bulan secara mulus
@@ -2371,7 +2414,7 @@
         'success'
       );
       if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
-        window.supabaseSync.updateRecordInCloud(singleRec, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => {});
+        window.supabaseSync.updateRecordInCloud(singleRec, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => { });
       }
     } else {
       const firstRec = savedRecords[0];
@@ -2381,7 +2424,7 @@
         'success'
       );
       if (window.supabaseSync && typeof window.supabaseSync.upsertRecordsBatchInCloud === 'function') {
-        window.supabaseSync.upsertRecordsBatchInCloud(savedRecords, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => {});
+        window.supabaseSync.upsertRecordsBatchInCloud(savedRecords, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => { });
       }
     }
   }
@@ -2441,7 +2484,7 @@
     showToast(`Perubahan presensi (${updated.status_kehadiran}) untuk ${updated.nama_lengkap} berhasil disimpan & disinkronkan live!`, 'success');
 
     if (window.supabaseSync && typeof window.supabaseSync.updateRecordInCloud === 'function') {
-      window.supabaseSync.updateRecordInCloud(updated, 'UPDATE').catch(() => {});
+      window.supabaseSync.updateRecordInCloud(updated, 'UPDATE').catch(() => { });
     }
   }
 
@@ -2470,7 +2513,7 @@
       showToast(`Data presensi ${rec.nama_lengkap} (${rec.tanggal}) berhasil dihapus di semua perangkat.`, 'danger');
 
       if (window.supabaseSync && typeof window.supabaseSync.deleteRecordFromCloud === 'function') {
-        window.supabaseSync.deleteRecordFromCloud(rec.nip, rec.tanggal, rec.nama_lengkap).catch(() => {});
+        window.supabaseSync.deleteRecordFromCloud(rec.nip, rec.tanggal, rec.nama_lengkap).catch(() => { });
       }
     }
   }
@@ -2493,9 +2536,9 @@
       showToast('Data dan konfigurasi berhasil dikembalikan ke database master FHISIP UT.', 'success');
 
       if (window.supabaseSync && typeof window.supabaseSync.replaceAllInCloud === 'function') {
-        window.supabaseSync.replaceAllInCloud(state.absensiList, { isReset: true }).catch(() => {});
+        window.supabaseSync.replaceAllInCloud(state.absensiList, { isReset: true }).catch(() => { });
         if (typeof window.supabaseSync.syncConfigToCloud === 'function') {
-          window.supabaseSync.syncConfigToCloud(DEFAULT_CONFIG).catch(() => {});
+          window.supabaseSync.syncConfigToCloud(DEFAULT_CONFIG).catch(() => { });
         }
       }
     }
@@ -2808,7 +2851,7 @@
 
     const existingIdx = state.absensiList.findIndex(
       r => (r.nip === enriched.nip && r.tanggal === enriched.tanggal) ||
-           (record.id && String(r.id) === String(record.id))
+        (record.id && String(r.id) === String(record.id))
     );
 
     let outcome = 'updated';
@@ -2875,7 +2918,7 @@
 
       const existingIdx = state.absensiList.findIndex(
         r => (r.nip === enriched.nip && r.tanggal === enriched.tanggal) ||
-             (record.id && String(r.id) === String(record.id))
+          (record.id && String(r.id) === String(record.id))
       );
 
       let outcome = 'updated';
@@ -3008,13 +3051,13 @@
                     evaluateAndRender();
                   }
                 }
-              } catch (_) {}
+              } catch (_) { }
             }
           } else if (event.data.type === 'CONFIG_UPDATED' && event.data.config) {
             applyRemoteConfigUpdate(event.data.config, null, { silent: true });
           }
         };
-      } catch (e) {}
+      } catch (e) { }
     }
   }
 
@@ -3060,8 +3103,8 @@
     exportLiveDatabaseXlsx: (ym = '') => {
       const menuExport = document.getElementById('menu-export');
       const menuData = document.getElementById('menu-data');
-      if (menuExport && typeof menuExport.hidePopover === 'function') { try { menuExport.hidePopover(); } catch (_) {} }
-      if (menuData && typeof menuData.hidePopover === 'function') { try { menuData.hidePopover(); } catch (_) {} }
+      if (menuExport && typeof menuExport.hidePopover === 'function') { try { menuExport.hidePopover(); } catch (_) { } }
+      if (menuData && typeof menuData.hidePopover === 'function') { try { menuData.hidePopover(); } catch (_) { } }
       if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.exportLiveDatabaseXlsx === 'function') {
         window.monthlyReportGenerator.exportLiveDatabaseXlsx(ym);
       } else {
