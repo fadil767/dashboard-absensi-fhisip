@@ -120,17 +120,17 @@
 
     const quotaText = document.getElementById('ai-agent-quota-text');
     if (quotaText && q) {
-      quotaText.textContent = `Kuota SDM: ${q.remainingToday}/${q.userLimit} sisa hari ini (Tim: ${q.teamRemaining}/${q.teamLimit}) • Reset ${q.resetLabel}`;
+      quotaText.textContent = `Gratis Rp 0 • Sisa kueri: ${q.remainingToday}/${q.userLimit} hari ini (Reset ${q.resetLabel})`;
     }
 
     const gatewayBadge = document.getElementById('ai-agent-gateway-badge');
     const gatewayAlert = document.getElementById('ai-agent-gateway-alert');
     if (gatewayBadge && g) {
-      if (!g.configured) {
+      if (g.authMode === 'local-free') {
+        gatewayBadge.textContent = 'Gratis Rp 0 • Tanpa API Key';
+        gatewayBadge.className = 'ai-gateway-badge is-ready';
+      } else if (!g.configured) {
         gatewayBadge.textContent = 'Gateway Belum Terkonfigurasi';
-        gatewayBadge.className = 'ai-gateway-badge is-warn';
-      } else if (g.credits && g.credits.available && Number(g.credits.balance) <= 0) {
-        gatewayBadge.textContent = `${g.model} • Kredit $0`;
         gatewayBadge.className = 'ai-gateway-badge is-warn';
       } else {
         gatewayBadge.textContent = `${g.model} (${g.authMode.toUpperCase()})`;
@@ -138,27 +138,8 @@
       }
     }
 
-    if (gatewayAlert && g) {
-      if (!g.configured || (g.credits && g.credits.available && Number(g.credits.balance) <= 0)) {
-        gatewayAlert.hidden = false;
-        gatewayAlert.replaceChildren();
-        const strong = document.createElement('strong');
-        strong.textContent = !g.configured
-          ? 'Konfigurasi AI Gateway Diperlukan: '
-          : 'Kredit Vercel AI Gateway $0: ';
-        const span = document.createElement('span');
-        span.textContent = !g.configured
-          ? 'Atur AI_GATEWAY_API_KEY atau VERCEL_OIDC_TOKEN pada proyek Vercel.'
-          : 'OIDC terhubung, namun saldo kredit AI Gateway $0. Aktifkan kredit gratis/top-up di Vercel Dashboard agar asisten AI dapat merespons.';
-        const link = document.createElement('a');
-        link.href = 'https://vercel.com/~/ai-gateway';
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.textContent = ' Buka Vercel AI Gateway →';
-        gatewayAlert.append(strong, span, link);
-      } else {
-        gatewayAlert.hidden = true;
-      }
+    if (gatewayAlert) {
+      gatewayAlert.hidden = true;
     }
   }
 
@@ -388,10 +369,10 @@
     }
 
     const now = Date.now();
-    if (now - agentState.lastSentAt < 2500) {
+    if (now - agentState.lastSentAt < 1000) {
       appendChatMessage({
         role: 'assistant',
-        text: 'Mohon tunggu 2,5 detik sebelum mengirim pertanyaan berikutnya (aturan cooldown kuota).',
+        text: 'Mohon tunggu 1 detik sebelum mengirim perintah berikutnya.',
         isError: true
       });
       return;

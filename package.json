@@ -15,9 +15,5 @@
     "disiplin"
   ],
   "author": "FHISIP Universitas Terbuka",
-  "license": "MIT",
-  "dependencies": {
-    "ai": "^7.0.173",
-    "zod": "^4.6.7"
-  }
+  "license": "MIT"
 }

@@ -1,12 +1,13 @@
 /**
- * Endpoint AI Agent Khusus Pengelola SDM FHISIP Universitas Terbuka
- * Vercel Node.js Function (Fluid Compute) + Lokal Node Server Bridge
+ * Endpoint Asisten Cerdas Pengelola SDM FHISIP Universitas Terbuka (Opsi 2: 100% Gratis Rp 0)
+ * Berjalan penuh di server Vercel/Node menggunakan Mesin Deterministik Lokal tanpa AI Gateway
+ * maupun biaya token pihak ketiga.
  *
- * Arsitektur & Rules:
+ * Rules Wajib:
  * 1. RBAC Ketat: Hanya SDM & Kepegawaian FHISIP, SDM & Administrasi Umum, dan Administrator.
- * 2. Kuota Terukur: 100 interaksi/hari per akun SDM, batas tim 300/hari (reset 00:00 WIB), cooldown 2,5 detik.
- * 3. Tiered Tools + Human-in-the-Loop: Tool baca jalan otomatis; tool ubah data HANYA membuat draf + tanda tangan HMAC menunggu klik Setujui admin; tool hapus/reset diblokir.
- * 4. Anti-Halusinasi & Hemat Token: Angka dihitung deterministik dari lib/fhisip-agent-rules.mjs, tidak mengirim ribuan baris mentah ke LLM.
+ * 2. Bebas Biaya Token (Rp 0): Menggunakan processLocalSdmPrompt + batas aman 500 tanya/hari per akun SDM.
+ * 3. Kebijakan Presensi FHISIP UT: Sabtu-Minggu = Lembur tanpa jam, status non-jam kosong, ekspor 100% sinkron.
+ * 4. Tiered Tools + HMAC Approval: Tier 1 jalan otomatis, Tier 2 wajib klik Setujui (HMAC 10 menit), Tier 3 diblokir.
  */
 
 import fs from 'node:fs';
@@ -17,32 +18,13 @@ import {
   QUOTA_RULES,
   DEFAULT_CONFIG,
   isPengelolaSdmActor,
-  getWibDayBoundsIso,
-  filterEvaluatedRecords,
-  computeEmployeeBreakdown,
-  searchEmployees,
-  summarizePeriod,
-  simulatePolicy,
-  buildAttendanceDraft
+  getWibDayBoundsIso
 } from '../lib/fhisip-agent-rules.mjs';
-
-let aiDepsPromise = null;
-async function loadAiDeps() {
-  if (!aiDepsPromise) {
-    aiDepsPromise = Promise.all([import('ai'), import('zod')]).then(([aiMod, zodMod]) => ({
-      ToolLoopAgent: aiMod.ToolLoopAgent,
-      createGateway: aiMod.createGateway,
-      tool: aiMod.tool,
-      isStepCount: aiMod.isStepCount,
-      z: zodMod.z
-    }));
-  }
-  return aiDepsPromise;
-}
+import { processLocalSdmPrompt } from '../lib/fhisip-agent-nlu.mjs';
 
 const DEFAULT_SUPABASE_URL = 'https://sxnimpyselgoenpurhhw.supabase.co';
 const DEFAULT_SUPABASE_ANON = 'sb_publishable_pm5jUtQVQf2wpWrtMtkm-Q_L6eb73S3';
-const DEFAULT_MODEL = 'google/gemini-3.8-flash';
+const LOCAL_ENGINE_NAME = 'Mode Lokal SDM (Gratis Rp 0)';
 
 const RULES_SUMMARY = [
   {
@@ -50,8 +32,8 @@ const RULES_SUMMARY = [
     detail: 'Hanya aktif untuk Pengelola SDM (Radhitya, Viku, Septin, Administrator). Akun Dosen, Dekan, Evaluator & Tamu ditolak (HTTP 403).'
   },
   {
-    layer: 'Kuota & Hemat Token',
-    detail: `Maksimal ${QUOTA_RULES.dailyLimitPerUser} tanya/hari per akun SDM (batas tim ${QUOTA_RULES.dailyTeamLimit}/hari, reset ${QUOTA_RULES.resetLabel}), jeda ${QUOTA_RULES.cooldownMs / 1000} detik, dan maksimal ${QUOTA_RULES.maxHistoryMessages} pesan konteks.`
+    layer: '100% Gratis & Privasi UT',
+    detail: `Diproses oleh mesin deterministik internal FHISIP tanpa AI Gateway maupun LLM pihak ketiga (Rp 0 biaya token, batas aman ${QUOTA_RULES.dailyLimitPerUser}/hari per akun, reset ${QUOTA_RULES.resetLabel}).`
   },
   {
     layer: 'Kebijakan Presensi FHISIP UT',
@@ -59,7 +41,7 @@ const RULES_SUMMARY = [
   },
   {
     layer: 'Persetujuan Manusia (Tier 1–3)',
-    detail: 'Tier 1 (Baca/Audit/Simulasi/Filter) berjalan otomatis. Tier 2 (Input/Ubah Data/Kebijakan) wajib preview + klik Setujui. Tier 3 (Hapus/Reset Massal) diblokir untuk AI.'
+    detail: 'Tier 1 (Baca/Audit/Simulasi/Filter) berjalan otomatis. Tier 2 (Input/Ubah Data/Kebijakan) wajib preview + klik Setujui. Tier 3 (Hapus/Reset Massal) diblokir.'
   }
 ];
 
@@ -70,8 +52,6 @@ const lastBurstByUser = new Map();
 function ensureEnvLoaded() {
   if (envLoaded) return;
   envLoaded = true;
-  // Di Vercel Production/Preview semua secret disuntik otomatis via process.env;
-  // Di lokal non-Vercel, .env / .env.local dimuat hanya bila bukan runtime Vercel dan tanpa bundling static file trace.
   if (process.env.VERCEL === '1') return;
   try {
     const cwd = process.cwd();
@@ -95,7 +75,7 @@ function ensureEnvLoaded() {
       }
     }
   } catch (_) {
-    // Abaikan error baca env lokal agar runtime serverless read-only tetap aman
+    // Abaikan error baca env lokal pada runtime read-only
   }
 }
 
@@ -107,32 +87,18 @@ function getSupabaseConfig() {
   };
 }
 
-function resolveGatewayAuthInternal(request = null) {
-  ensureEnvLoaded();
-  const apiKey = (process.env.AI_GATEWAY_API_KEY || '').trim();
-  const reqCtxToken = globalThis[Symbol.for('@vercel/request-context')]?.get?.()?.headers?.['x-vercel-oidc-token'] || '';
-  const reqHeaderToken = request?.headers?.get?.('x-vercel-oidc-token') || '';
-  const envOidcToken = (process.env.VERCEL_OIDC_TOKEN || '').trim();
-  const oidcToken = String(reqCtxToken || reqHeaderToken || envOidcToken).trim();
-  const model = process.env.AI_GATEWAY_MODEL || DEFAULT_MODEL;
-
+function getEngineStatus() {
   return {
-    configured: Boolean(apiKey || oidcToken),
-    authMode: apiKey ? 'api-key' : (oidcToken ? 'oidc' : 'unconfigured'),
-    model,
-    bearer: apiKey || oidcToken
+    configured: true,
+    authMode: 'local-free',
+    model: LOCAL_ENGINE_NAME,
+    credits: null
   };
-}
-
-function getGatewayAuthStatus(request = null) {
-  const { configured, authMode, model } = resolveGatewayAuthInternal(request);
-  return { configured, authMode, model };
 }
 
 function getApprovalSecret() {
   ensureEnvLoaded();
   const seed = process.env.AGENT_APPROVAL_SECRET
-    || process.env.AI_GATEWAY_API_KEY
     || process.env.SUPABASE_SECRET_KEY
     || process.env.VERCEL_PROJECT_ID
     || 'fhisip-ut-sdm-approval-guard-v1';
@@ -168,7 +134,7 @@ function validateSameOrigin(request) {
   if (secFetchSite === 'cross-site') return false;
 
   const origin = request.headers.get('origin');
-  if (!origin) return true; // Browser same-origin GET atau internal call
+  if (!origin) return true;
 
   try {
     const u = new URL(origin);
@@ -185,7 +151,7 @@ function validateSameOrigin(request) {
 
 async function supabaseFetch(restPath, options = {}) {
   const { url, key } = getSupabaseConfig();
-  const res = await fetch(`${url}/rest/v1/${restPath}`, {
+  return fetch(`${url}/rest/v1/${restPath}`, {
     ...options,
     headers: {
       apikey: key,
@@ -194,7 +160,6 @@ async function supabaseFetch(restPath, options = {}) {
       ...(options.headers || {})
     }
   });
-  return res;
 }
 
 async function fetchAllPaginated(tablePath) {
@@ -319,7 +284,7 @@ async function getQuotaStatus(username) {
 
   try {
     const res = await supabaseFetch(
-      `audit_log?select=user_identifier,created_at&aksi=eq.AI_AGENT_QUERY&created_at=gte.${encodeURIComponent(startUtcIso)}&order=created_at.desc&limit=500`
+      `audit_log?select=user_identifier,created_at&aksi=eq.AI_AGENT_QUERY&created_at=gte.${encodeURIComponent(startUtcIso)}&order=created_at.desc&limit=1500`
     );
     if (!res.ok) throw new Error(`audit_log status ${res.status}`);
     const rows = await res.json();
@@ -376,286 +341,6 @@ async function writeAuditLog(userIdentifier, aksi, detail) {
   }
 }
 
-async function checkGatewayCreditsSafe(request = null) {
-  const auth = resolveGatewayAuthInternal(request);
-  if (!auth.configured) {
-    return { available: false, reason: 'missing_auth', balance: null };
-  }
-  const bearer = auth.bearer;
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
-    const res = await fetch('https://ai-gateway.vercel.sh/v1/credits', {
-      headers: { Authorization: `Bearer ${bearer}` },
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-    if (!res.ok) return { available: false, reason: `http_${res.status}`, balance: null };
-    const data = await res.json();
-    return { available: true, balance: data.balance ?? null, totalUsed: data.total_used ?? null };
-  } catch (_) {
-    return { available: false, reason: 'unreachable', balance: null };
-  }
-}
-
-function classifyGatewayError(err) {
-  const status = err?.statusCode || err?.data?.error?.code || err?.cause?.statusCode || 500;
-  const msg = String(err?.message || '');
-  const low = msg.toLowerCase();
-
-  if (low.includes('customer_verification_required') || low.includes('payment method') || low.includes('credit card')) {
-    return {
-      httpStatus: 402,
-      code: 'GATEWAY_VERIFICATION_REQUIRED',
-      error: 'Tim Vercel Anda perlu verifikasi metode pembayaran di menu AI Gateway untuk mengaktifkan kredit gratis / akses model.',
-      actionUrl: 'https://vercel.com/~/ai-gateway'
-    };
-  }
-  if (status === 402 || low.includes('insufficient_funds') || low.includes('insufficient credits')) {
-    return {
-      httpStatus: 402,
-      code: 'GATEWAY_CREDITS_EMPTY',
-      error: 'Saldo Kredit AI Gateway Vercel saat ini kosong ($0). Silakan aktifkan kredit gratis / top-up di Vercel AI Gateway atau tambahkan AI_GATEWAY_API_KEY / BYOK.',
-      actionUrl: 'https://vercel.com/~/ai-gateway'
-    };
-  }
-  if (low.includes('quota_for_entity_exceeded')) {
-    return {
-      httpStatus: 402,
-      code: 'GATEWAY_BUDGET_EXCEEDED',
-      error: 'Batas budget AI Gateway untuk tim/proyek ini telah tercapai.',
-      actionUrl: 'https://vercel.com/~/ai-gateway'
-    };
-  }
-  if (status === 401 || status === 403 || low.includes('unauthorized') || low.includes('oidc') || low.includes('api key')) {
-    return {
-      httpStatus: 401,
-      code: 'GATEWAY_AUTH_ERROR',
-      error: 'Autentikasi Vercel AI Gateway belum aktif atau token OIDC lokal kedaluwarsa (jalankan `vercel env pull .env.local` jika di lokal, atau atur `AI_GATEWAY_API_KEY`).',
-      actionUrl: 'https://vercel.com/docs/ai-gateway/getting-started'
-    };
-  }
-  if (status === 429 || low.includes('rate limit')) {
-    return {
-      httpStatus: 429,
-      code: 'GATEWAY_RATE_LIMITED',
-      error: 'Rate limit model AI Gateway sementara tercapai. Tunggu beberapa detik lalu coba lagi.'
-    };
-  }
-  return {
-    httpStatus: 500,
-    code: 'AGENT_EXECUTION_ERROR',
-    error: `Terjadi kendala saat memproses permintaan AI Agent: ${msg.slice(0, 220)}`
-  };
-}
-
-function buildSdmSystemPrompt({ actor, configSnapshot, snapshot }) {
-  const cfg = configSnapshot || snapshot.config || DEFAULT_CONFIG;
-  const availableMonths = [...new Set((snapshot.absensi || []).map(r => String(r.tanggal || '').slice(0, 7)).filter(Boolean))].sort();
-  return `Anda adalah Asisten AI Pengelola SDM resmi Fakultas Hukum, Ilmu Sosial, dan Ilmu Politik (FHISIP) Universitas Terbuka.
-Pengguna aktif: ${actor.name} (${actor.role}, username: ${actor.username}).
-Periode data tersedia: ${availableMonths.join(', ') || '2026-09, 2026-10'} (Total pegawai: ${snapshot.pegawai.length}, Total catatan: ${snapshot.absensi.length}).
-Konfigurasi jam kerja aktif saat ini: Batas Masuk ${cfg.jamMasuk} WIB (Toleransi ${cfg.toleransi || 0} menit), Pulang Senin-Kamis ${cfg.jamPulang} WIB, Pulang Jumat ${cfg.jamPulangJumat || cfg.jamPulang} WIB.
-
-ATURAN WAJIB (PATUHI 100%):
-1. ANTI-HALUSINASI: Dilarang mengarang angka, NIP, tanggal, atau jumlah kehadiran. Selalu panggil tool untuk membaca data dan menghitung angka.
-2. KEBIJAKAN PRESENSI FHISIP UT:
-   - Sabtu & Minggu otomatis berstatus "Lembur" TANPA jam masuk dan jam pulang.
-   - Status "Lembur", "Izin", "Cuti", "Sakit", "Dinas Luar", "Tugas Belajar", dan "Alpha" TIDAK memiliki jam masuk/pulang (kosong/null).
-   - Pada laporan resmi & Tab Rekap per Pegawai: D.Luar, Cuti, Sakit, Ijin dihitung HANYA dari catatan nyata; hari kerja normal tanpa catatan masuk ke "Tanpa Keterangan". Absen = Normal - Riil.
-3. TIER EKSEKUSI TOOL & KONFIRMASI:
-   - Tier 1 (cariPegawai, ringkasanDisiplinPeriode, auditPegawaiTerlambatAtauAnomali, cekRekapPegawaiResmi, simulasiKebijakanJamKerja, terapkanFilterDashboard) boleh langsung dijalankan.
-   - Tier 2 (siapkanInputPresensi, siapkanUbahKebijakan) HANYA membuat draf preview untuk disetujui Pengelola SDM di layar. Jelaskan ringkasan drafnya secara jelas dan informasikan bahwa data belum tersimpan sebelum admin mengklik tombol "Setujui & Simpan".
-   - Tier 3 (Hapus catatan / Reset database / Gantikan seluruh data) DILARANG untuk AI. Jika user meminta menghapus atau reset database, tolak dengan sopan dan arahkan ke tombol manual di dashboard.
-4. AMBIGUITAS NAMA: Jika nama pegawai tidak unik (lebih dari 1 kandidat), sebutkan daftar kandidat (Nama, NIP, Unit Kerja) dan minta user memilih satu NIP spesifik.
-5. BAHASA & FORMAT: Jawab ringkas, akurat, profesional dalam Bahasa Indonesia menggunakan Markdown rapi.`;
-}
-
-function createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands, tool, z }) {
-  const pegawaiList = snapshot.pegawai;
-  const absensiList = snapshot.absensi;
-
-  return {
-    cariPegawai: tool({
-      description: 'Cari daftar pegawai FHISIP UT berdasarkan potongan nama, NIP, atau unit kerja. Mengembalikan maksimal 15 pegawai.',
-      inputSchema: z.object({
-        query: z.string().describe('Potongan nama pegawai atau NIP yang dicari'),
-        unit: z.string().optional().describe('Opsional filter bagian/program studi')
-      }),
-      execute: async ({ query, unit }) => {
-        const matches = searchEmployees(pegawaiList, query, unit);
-        return { totalFound: matches.length, employees: matches };
-      }
-    }),
-
-    ringkasanDisiplinPeriode: tool({
-      description: 'Menghitung ringkasan jumlah presensi, tepat waktu, terlambat, pulang cepat, belum scan pulang, lembur, cuti, sakit, izin, dinas luar untuk suatu bulan atau rentang tanggal.',
-      inputSchema: z.object({
-        month: z.string().optional().describe('Filter bulan format YYYY-MM, misalnya 2026-10 atau 2026-09'),
-        startDate: z.string().optional().describe('Tanggal awal YYYY-MM-DD (opsional)'),
-        endDate: z.string().optional().describe('Tanggal akhir YYYY-MM-DD (opsional)'),
-        unit: z.string().optional().describe('Filter Unit Kerja / Prodi (opsional)')
-      }),
-      execute: async ({ month, startDate, endDate, unit }) => {
-        return summarizePeriod(absensiList, pegawaiList, activeConfig, { month, startDate, endDate, unit });
-      }
-    }),
-
-    auditPegawaiTerlambatAtauAnomali: tool({
-      description: 'Mengambil daftar pegawai teratas yang paling sering Terlambat, Pulang Cepat, Belum Scan Pulang, atau Tanpa Keterangan pada periode tertentu.',
-      inputSchema: z.object({
-        month: z.string().optional().describe('Bulan YYYY-MM, contoh: 2026-10'),
-        metric: z.enum(['terlambat', 'pulangCepat', 'tanpaPulang', 'tanpaKeterangan', 'lembur']).default('terlambat'),
-        unit: z.string().optional().describe('Filter Unit Kerja opsional'),
-        minCount: z.number().int().min(1).default(1).describe('Batas minimum kemunculan'),
-        limit: z.number().int().min(1).max(25).default(10).describe('Jumlah baris maksimal (1-25)')
-      }),
-      execute: async ({ month, metric, unit, minCount, limit }) => {
-        const pMap = new Map(pegawaiList.map(p => [String(p.nip).trim(), p]));
-        const evaluated = filterEvaluatedRecords(absensiList, pMap, activeConfig, { month, unit });
-        const breakdown = computeEmployeeBreakdown(evaluated, pegawaiList);
-        const rows = breakdown.rows
-          .filter(r => (r[metric] || 0) >= minCount)
-          .sort((a, b) => (b[metric] - a[metric]) || (b.menitTerlambat - a.menitTerlambat))
-          .slice(0, limit)
-          .map(r => ({
-            nip: r.nip,
-            nama_lengkap: r.nama_lengkap,
-            unit_kerja: r.unit_kerja,
-            [metric]: r[metric],
-            totalMenitTelat: r.menitTerlambat,
-            normalDays: r.normalDays,
-            riilDays: r.riilDays,
-            absenDays: r.absenDays
-          }));
-        return {
-          period: { month: month || 'aktif', startDate: breakdown.startDate, endDate: breakdown.endDate, normalWorkingDays: breakdown.normalDays },
-          metric,
-          totalMatchingEmployees: rows.length,
-          topEmployees: rows
-        };
-      }
-    }),
-
-    cekRekapPegawaiResmi: tool({
-      description: 'Mengambil rincian kehadiran resmi per pegawai (sama 1-to-1 dengan Export Excel & Tab Rekap per Pegawai): Normal, Riil, Absen, D.Luar, Cuti, Sakit, Izin, Tanpa Keterangan, Terlambat, Lembur.',
-      inputSchema: z.object({
-        employeeQuery: z.string().describe('Nama atau NIP pegawai'),
-        month: z.string().optional().describe('Bulan YYYY-MM, misalnya 2026-10')
-      }),
-      execute: async ({ employeeQuery, month }) => {
-        const pMap = new Map(pegawaiList.map(p => [String(p.nip).trim(), p]));
-        const evaluated = filterEvaluatedRecords(absensiList, pMap, activeConfig, { month });
-        const breakdown = computeEmployeeBreakdown(evaluated, pegawaiList);
-        const q = employeeQuery.trim().toLowerCase();
-        const matches = breakdown.rows.filter(r =>
-          String(r.nip).toLowerCase() === q || String(r.nama_lengkap).toLowerCase().includes(q)
-        );
-        return {
-          month: month || 'semua periode aktif',
-          normalWorkingDays: breakdown.normalDays,
-          matchedCount: matches.length,
-          employees: matches.slice(0, 10)
-        };
-      }
-    }),
-
-    simulasiKebijakanJamKerja: tool({
-      description: 'Mensimulasikan perubahan jam masuk, toleransi keterlambatan, atau jam pulang tanpa mengubah database.',
-      inputSchema: z.object({
-        month: z.string().optional().describe('Bulan simulasi YYYY-MM, misalnya 2026-10'),
-        jamMasuk: z.string().optional().describe('Jam masuk baru HH:MM, misal 08:00'),
-        toleransi: z.number().int().min(0).max(60).optional().describe('Menit toleransi keterlambatan'),
-        jamPulang: z.string().optional().describe('Jam pulang Senin-Kamis HH:MM, misal 16:30'),
-        jamPulangJumat: z.string().optional().describe('Jam pulang hari Jumat HH:MM, misal 17:00')
-      }),
-      execute: async ({ month, jamMasuk, toleransi, jamPulang, jamPulangJumat }) => {
-        const proposed = {};
-        if (jamMasuk) proposed.jamMasuk = jamMasuk;
-        if (toleransi !== undefined) proposed.toleransi = toleransi;
-        if (jamPulang) proposed.jamPulang = jamPulang;
-        if (jamPulangJumat) proposed.jamPulangJumat = jamPulangJumat;
-        return simulatePolicy(absensiList, pegawaiList, activeConfig, proposed, { month });
-      }
-    }),
-
-    terapkanFilterDashboard: tool({
-      description: 'Mengatur tampilan/filter Dashboard di browser Pengelola SDM (ganti tab ke log harian/rekap pegawai/rekap prodi, isi kolom pencarian, bulan, atau filter status).',
-      inputSchema: z.object({
-        tab: z.enum(['harian', 'pegawai', 'prodi']).optional().describe('Tab dashboard yang dibuka'),
-        search: z.string().optional().describe('Kata kunci pencarian nama/NIP/unit'),
-        month: z.string().optional().describe('Bulan periode YYYY-MM atau kosong untuk semua'),
-        status: z.enum(['all', 'telat', 'tepat', 'pulang_cepat', 'tanpa_pulang', 'anomali', 'lembur', 'izin']).optional()
-      }),
-      execute: async (params) => {
-        uiCommands.push({ type: 'APPLY_UI_FILTER', params });
-        return { appliedInUI: true, filter: params };
-      }
-    }),
-
-    siapkanInputPresensi: tool({
-      description: 'TIER 2 PREVIEW (TIDAK LANGSUNG SIMPAN): Menyiapkan draf tambah/ubah presensi untuk 1 tanggal atau rentang tanggal (Cuti, Izin, Sakit, Dinas Luar, Lembur, Hadir) hingga maksimal 62 hari agar disetujui Pengelola SDM.',
-      inputSchema: z.object({
-        employeeQuery: z.string().describe('Nama lengkap atau NIP pegawai (jika ambigu akan dikembalikan daftar kandidat NIP)'),
-        status: z.enum(['Hadir', 'Cuti', 'Izin', 'Sakit', 'Dinas Luar', 'Lembur', 'Tugas Belajar']).describe('Status kehadiran'),
-        startDate: z.string().describe('Tanggal mulai format YYYY-MM-DD'),
-        endDate: z.string().optional().describe('Tanggal selesai format YYYY-MM-DD (kosongkan jika 1 hari)'),
-        skipWeekend: z.boolean().optional().default(true).describe('Lewati Sabtu & Minggu untuk rentang hari kerja (otomatis false jika status Lembur)'),
-        jamMasuk: z.string().optional().describe('Hanya untuk status Hadir di hari kerja, format HH:MM'),
-        jamPulang: z.string().optional().describe('Hanya untuk status Hadir di hari kerja, format HH:MM'),
-        keterangan: z.string().optional().describe('Catatan pendukung, misal Cuti Tahunan / Surat Dokter / Nomor Surat Tugas')
-      }),
-      execute: async (params) => {
-        const draft = buildAttendanceDraft(pegawaiList, absensiList, params);
-        if (!draft.ok) return draft;
-        pendingProposals.push(draft.proposal);
-        return {
-          ok: true,
-          requiresAdminApproval: true,
-          truncated: draft.truncated,
-          previewSummary: {
-            employee: draft.proposal.employee,
-            status: draft.proposal.requestedStatus,
-            startDate: draft.proposal.startDate,
-            endDate: draft.proposal.endDate,
-            totalDays: draft.proposal.totalDays,
-            insertCount: draft.proposal.insertCount,
-            overwriteCount: draft.proposal.overwriteCount,
-            rulesApplied: draft.proposal.rulesApplied
-          }
-        };
-      }
-    }),
-
-    siapkanUbahKebijakan: tool({
-      description: 'TIER 2 PREVIEW (TIDAK LANGSUNG SIMPAN): Menyiapkan draf perubahan pengaturan batas jam datang, toleransi keterlambatan, atau jam pulang untuk dikonfirmasi Pengelola SDM.',
-      inputSchema: z.object({
-        jamMasuk: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('Batas jam masuk format HH:MM'),
-        toleransi: z.number().int().min(0).max(60).optional().describe('Menit toleransi keterlambatan (0-60)'),
-        jamPulang: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('Jam pulang Senin-Kamis HH:MM'),
-        jamPulangJumat: z.string().regex(/^\d{2}:\d{2}$/).optional().describe('Jam pulang hari Jumat HH:MM')
-      }),
-      execute: async (params) => {
-        const after = {
-          ...activeConfig,
-          ...(params.jamMasuk ? { jamMasuk: params.jamMasuk } : {}),
-          ...(params.toleransi !== undefined ? { toleransi: params.toleransi } : {}),
-          ...(params.jamPulang ? { jamPulang: params.jamPulang } : {}),
-          ...(params.jamPulangJumat ? { jamPulangJumat: params.jamPulangJumat } : {}),
-          preset: 'custom'
-        };
-        const proposal = {
-          actionType: 'UPDATE_POLICY',
-          before: { ...activeConfig },
-          after
-        };
-        pendingProposals.push(proposal);
-        return { ok: true, requiresAdminApproval: true, before: proposal.before, after: proposal.after };
-      }
-    })
-  };
-}
-
 export async function GET(request) {
   if (!validateSameOrigin(request)) {
     return Response.json({ error: 'Origin tidak diizinkan.' }, { status: 403 });
@@ -676,21 +361,12 @@ export async function GET(request) {
     }, { status: 403 });
   }
 
-  const [quota, credits] = await Promise.all([
-    getQuotaStatus(actor.username),
-    checkGatewayCreditsSafe(request)
-  ]);
-
-  const gateway = getGatewayAuthStatus(request);
-
+  const quota = await getQuotaStatus(actor.username);
   return Response.json({
     allowed: true,
     actor: { username: actor.username, role: actor.role, name: actor.name },
     quota,
-    gateway: {
-      ...gateway,
-      credits
-    },
+    gateway: getEngineStatus(),
     rulesSummary: RULES_SUMMARY
   });
 }
@@ -714,7 +390,7 @@ export async function POST(request) {
     }, { status: 403 });
   }
 
-  // Jalur 1: Audit persetujuan manusia atas draf Tier 2 (tidak memotong kuota AI)
+  // Jalur 1: Audit persetujuan manusia atas draf Tier 2
   if (body.action === 'audit_approval') {
     const { proposal, expiresAt, signature } = body;
     if (!proposal || !verifyProposalSignature(actor.username, proposal, expiresAt, signature)) {
@@ -740,7 +416,7 @@ export async function POST(request) {
     return Response.json({ ok: true, audited: true });
   }
 
-  // Jalur 2: Interaksi chat AI Agent
+  // Jalur 2: Interaksi Asisten SDM Deterministik Lokal (Rp 0 Tanpa AI Gateway)
   const rawMessages = Array.isArray(body.messages) ? body.messages : [];
   if (rawMessages.length === 0) {
     return Response.json({ error: 'Pesan percakapan tidak boleh kosong.' }, { status: 400 });
@@ -760,7 +436,6 @@ export async function POST(request) {
     return Response.json({ error: 'Pesan terakhir harus berasal dari pengguna.' }, { status: 400 });
   }
 
-  // Cek cooldown & kuota harian dari Supabase audit_log
   const quota = await getQuotaStatus(actor.username);
   const now = Date.now();
   if (quota.lastRequestAt && (now - quota.lastRequestAt) < QUOTA_RULES.cooldownMs) {
@@ -773,26 +448,16 @@ export async function POST(request) {
   if (quota.remainingToday <= 0) {
     return Response.json({
       code: 'USER_DAILY_QUOTA_EXCEEDED',
-      error: `Kuota harian Anda (${quota.userLimit} interaksi/hari) sudah habis. Kuota akan direset pukul ${quota.resetLabel}.`,
+      error: `Batas aman harian (${quota.userLimit} kueri/hari) tercapai. Akan direset pukul ${quota.resetLabel}.`,
       quota
     }, { status: 429 });
   }
   if (quota.teamRemaining <= 0) {
     return Response.json({
       code: 'TEAM_DAILY_QUOTA_EXCEEDED',
-      error: `Kuota harian tim Pengelola SDM (${quota.teamLimit} interaksi/hari) telah mencapai batas pengaman.`,
+      error: `Batas aman tim (${quota.teamLimit} kueri/hari) tercapai untuk menjaga performa database.`,
       quota
     }, { status: 429 });
-  }
-
-  const gatewayAuth = resolveGatewayAuthInternal(request);
-  if (!gatewayAuth.configured) {
-    return Response.json({
-      code: 'GATEWAY_AUTH_MISSING',
-      error: 'Autentikasi Vercel AI Gateway belum aktif di server (VERCEL_OIDC_TOKEN / x-vercel-oidc-token / AI_GATEWAY_API_KEY belum tersedia). Atur AI_GATEWAY_API_KEY di Vercel Project Settings atau aktifkan OIDC Federation.',
-      actionUrl: 'https://vercel.com/docs/ai-gateway/getting-started',
-      quota
-    }, { status: 503 });
   }
 
   lastBurstByUser.set(String(actor.username).trim().toLowerCase(), now);
@@ -802,78 +467,45 @@ export async function POST(request) {
     ? { ...DEFAULT_CONFIG, ...body.configSnapshot }
     : snapshot.config;
 
-  const pendingProposals = [];
-  const uiCommands = [];
+  const engineResult = processLocalSdmPrompt({
+    messages: trimmedHistory,
+    snapshot,
+    activeConfig,
+    actor
+  });
 
-  try {
-    const { ToolLoopAgent, createGateway, tool, isStepCount, z } = await loadAiDeps();
-    const resolvedModel = (gatewayAuth.authMode === 'oidc' && gatewayAuth.bearer && !process.env.VERCEL_OIDC_TOKEN)
-      ? createGateway({ apiKey: gatewayAuth.bearer })(gatewayAuth.model)
-      : gatewayAuth.model;
-    const agent = new ToolLoopAgent({
-      model: resolvedModel,
-      instructions: buildSdmSystemPrompt({ actor, configSnapshot: activeConfig, snapshot }),
-      tools: createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands, tool, z }),
-      stopWhen: isStepCount(6),
-      maxOutputTokens: 1200,
-      providerOptions: {
-        gateway: {
-          user: String(actor.username).slice(0, 80),
-          tags: ['fhisip-ut', 'pengelola-sdm']
-        }
-      }
-    });
+  const expiresAt = Date.now() + 10 * 60 * 1000;
+  const signedPendingActions = (engineResult.pendingProposals || []).map(proposal => ({
+    proposal,
+    expiresAt,
+    signature: signProposal(actor.username, proposal, expiresAt)
+  }));
 
-    const result = await agent.generate({
-      messages: trimmedHistory
-    });
+  await writeAuditLog(actor.username, 'AI_AGENT_QUERY', {
+    actorName: actor.name || actor.username,
+    actorRole: actor.role,
+    engine: 'local-deterministic-free',
+    toolsCalled: engineResult.toolsCalled,
+    hasPendingProposal: signedPendingActions.length > 0
+  });
 
-    const expiresAt = Date.now() + 10 * 60 * 1000;
-    const signedPendingActions = pendingProposals.map(proposal => ({
-      proposal,
-      expiresAt,
-      signature: signProposal(actor.username, proposal, expiresAt)
-    }));
+  const updatedQuota = {
+    ...quota,
+    usedToday: quota.usedToday + 1,
+    remainingToday: Math.max(0, quota.remainingToday - 1),
+    teamUsedToday: quota.teamUsedToday + 1,
+    teamRemaining: Math.max(0, quota.teamRemaining - 1)
+  };
 
-    // Catat ke audit_log hanya setelah generasi berhasil agar error gateway/kredit tidak memotong kuota user
-    await writeAuditLog(actor.username, 'AI_AGENT_QUERY', {
-      actorName: actor.name || actor.username,
-      actorRole: actor.role,
-      model: gatewayAuth.model,
-      steps: result.steps?.length || 1,
-      inputTokens: result.usage?.inputTokens ?? null,
-      outputTokens: result.usage?.outputTokens ?? null,
-      totalTokens: result.usage?.totalTokens ?? null,
-      hasPendingProposal: signedPendingActions.length > 0
-    });
-
-    const updatedQuota = {
-      ...quota,
-      usedToday: quota.usedToday + 1,
-      remainingToday: Math.max(0, quota.remainingToday - 1),
-      teamUsedToday: quota.teamUsedToday + 1,
-      teamRemaining: Math.max(0, quota.teamRemaining - 1)
-    };
-
-    return Response.json({
-      ok: true,
-      reply: result.text || 'Selesai memproses permintaan Anda.',
-      model: gatewayAuth.model,
-      usage: result.usage || null,
-      toolsCalled: (result.steps || [])
-        .flatMap(s => (s.toolCalls || []).map(tc => tc.toolName))
-        .filter(Boolean),
-      pendingActions: signedPendingActions,
-      uiCommands,
-      quota: updatedQuota,
-      snapshotSource: snapshot.source
-    });
-  } catch (err) {
-    const classified = classifyGatewayError(err);
-    return Response.json({
-      ...classified,
-      model: gatewayAuth.model,
-      quota
-    }, { status: classified.httpStatus });
-  }
+  return Response.json({
+    ok: true,
+    reply: engineResult.reply,
+    model: LOCAL_ENGINE_NAME,
+    usage: null,
+    toolsCalled: engineResult.toolsCalled,
+    pendingActions: signedPendingActions,
+    uiCommands: engineResult.uiCommands,
+    quota: updatedQuota,
+    snapshotSource: snapshot.source
+  });
 }

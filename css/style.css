@@ -3427,6 +3427,10 @@ dialog.ai-agent-drawer :focus-visible {
   border-top: 1px solid var(--border-color);
 }
 
+dialog.ai-agent-drawer [hidden] {
+  display: none !important;
+}
+
 .ai-chat-form {
   display: flex;
   gap: 8px;

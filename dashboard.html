@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=3.0">
+  <link rel="stylesheet" href="css/style.css?v=3.1">
 </head>
 <body>
 
@@ -172,8 +172,8 @@
         </div>
 
         <!-- Asisten AI Khusus Pengelola SDM (disembunyikan otomatis untuk non-SDM) -->
-        <button type="button" id="btn-header-ai-agent" class="btn btn-ai-sdm" style="display:none;" aria-haspopup="dialog" aria-controls="dialog-ai-agent" title="Asisten AI Pengelola SDM FHISIP UT">
-          <span>🤖</span> Asisten AI SDM <span class="ai-quota-pill" id="header-ai-quota-pill">100/100</span>
+        <button type="button" id="btn-header-ai-agent" class="btn btn-ai-sdm" style="display:none;" aria-haspopup="dialog" aria-controls="dialog-ai-agent" title="Asisten SDM FHISIP UT (Mode Lokal Gratis)">
+          <span>🤖</span> Asisten AI SDM <span class="ai-quota-pill" id="header-ai-quota-pill">500/500</span>
         </button>
 
         <!-- Menu Akun Pengguna -->
@@ -1389,8 +1389,8 @@
       </div>
 
       <div class="ai-drawer-status-bar">
-        <span id="ai-agent-quota-text" class="ai-quota-text">Kuota SDM: memuat...</span>
-        <span id="ai-agent-gateway-badge" class="ai-gateway-badge">AI Gateway</span>
+        <span id="ai-agent-quota-text" class="ai-quota-text">Gratis Rp 0 • Memuat kuota...</span>
+        <span id="ai-agent-gateway-badge" class="ai-gateway-badge is-ready">Gratis Rp 0 • Tanpa API Key</span>
       </div>
 
       <div id="ai-agent-gateway-alert" class="ai-gateway-alert" hidden></div>
@@ -1409,9 +1409,10 @@
 
       <div id="ai-agent-messages" class="ai-chat-feed" aria-live="polite">
         <div class="ai-chat-bubble ai-chat-assistant">
-          <div class="ai-chat-meta">Asisten AI SDM</div>
+          <div class="ai-chat-meta">Asisten SDM FHISIP (Gratis Lokal)</div>
           <div class="ai-chat-body">
-            <p>Halo Pengelola SDM FHISIP UT. Saya siap membantu audit keterlambatan, cek rekap resmi <code>D.Luar / Cuti / Sakit / Ijin / Tanpa Keterangan</code>, simulasi kebijakan jam masuk/pulang, serta menyiapkan draf input cuti atau izin.</p>
+            <p>Halo Pengelola SDM FHISIP UT. Asisten kini berjalan pada <strong>Mode Deterministik Lokal (100% Gratis Rp 0 &amp; Tanpa AI Gateway)</strong>. Data pegawai tetap aman di internal FHISIP.</p>
+            <p>Saya siap membantu audit keterlambatan, cek rekap resmi <code>D.Luar / Cuti / Sakit / Ijin / Tanpa Keterangan</code>, simulasi kebijakan jam masuk/pulang, serta menyiapkan draf input cuti atau izin.</p>
             <p>Setiap perubahan data atau kebijakan hanya berupa <strong>draf</strong> dan tidak akan disimpan sebelum Anda mengklik <strong>Setujui &amp; Simpan</strong>.</p>
           </div>
         </div>
@@ -1437,15 +1438,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js?v=3.0"></script>
-  <script src="js/storage-manager.js?v=3.0"></script>
-  <script src="js/excel-import.js?v=3.0"></script>
-  <script src="js/excel-rekap-template-assets.js?v=3.0"></script>
-  <script src="js/excel-monthly-report.js?v=3.0"></script>
-  <script src="js/pdf-export.js?v=3.0"></script>
-  <script src="js/supabase-client.js?v=3.0"></script>
-  <script src="js/app.js?v=3.0"></script>
-  <script src="js/ai-agent.js?v=3.0"></script>
+  <script src="js/data-fhisip.js?v=3.1"></script>
+  <script src="js/storage-manager.js?v=3.1"></script>
+  <script src="js/excel-import.js?v=3.1"></script>
+  <script src="js/excel-rekap-template-assets.js?v=3.1"></script>
+  <script src="js/excel-monthly-report.js?v=3.1"></script>
+  <script src="js/pdf-export.js?v=3.1"></script>
+  <script src="js/supabase-client.js?v=3.1"></script>
+  <script src="js/app.js?v=3.1"></script>
+  <script src="js/ai-agent.js?v=3.1"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.updateSelectedMonthPreview === 'function') {
