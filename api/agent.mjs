@@ -31,6 +31,7 @@ async function loadAiDeps() {
   if (!aiDepsPromise) {
     aiDepsPromise = Promise.all([import('ai'), import('zod')]).then(([aiMod, zodMod]) => ({
       ToolLoopAgent: aiMod.ToolLoopAgent,
+      createGateway: aiMod.createGateway,
       tool: aiMod.tool,
       isStepCount: aiMod.isStepCount,
       z: zodMod.z
@@ -106,16 +107,26 @@ function getSupabaseConfig() {
   };
 }
 
-function getGatewayAuthStatus() {
+function resolveGatewayAuthInternal(request = null) {
   ensureEnvLoaded();
-  const hasApiKey = Boolean(process.env.AI_GATEWAY_API_KEY && process.env.AI_GATEWAY_API_KEY.trim());
-  const hasOidc = Boolean(process.env.VERCEL_OIDC_TOKEN && process.env.VERCEL_OIDC_TOKEN.trim());
+  const apiKey = (process.env.AI_GATEWAY_API_KEY || '').trim();
+  const reqCtxToken = globalThis[Symbol.for('@vercel/request-context')]?.get?.()?.headers?.['x-vercel-oidc-token'] || '';
+  const reqHeaderToken = request?.headers?.get?.('x-vercel-oidc-token') || '';
+  const envOidcToken = (process.env.VERCEL_OIDC_TOKEN || '').trim();
+  const oidcToken = String(reqCtxToken || reqHeaderToken || envOidcToken).trim();
   const model = process.env.AI_GATEWAY_MODEL || DEFAULT_MODEL;
+
   return {
-    configured: hasApiKey || hasOidc,
-    authMode: hasApiKey ? 'api-key' : (hasOidc ? 'oidc' : 'unconfigured'),
-    model
+    configured: Boolean(apiKey || oidcToken),
+    authMode: apiKey ? 'api-key' : (oidcToken ? 'oidc' : 'unconfigured'),
+    model,
+    bearer: apiKey || oidcToken
   };
+}
+
+function getGatewayAuthStatus(request = null) {
+  const { configured, authMode, model } = resolveGatewayAuthInternal(request);
+  return { configured, authMode, model };
 }
 
 function getApprovalSecret() {
@@ -365,12 +376,12 @@ async function writeAuditLog(userIdentifier, aksi, detail) {
   }
 }
 
-async function checkGatewayCreditsSafe() {
-  const auth = getGatewayAuthStatus();
+async function checkGatewayCreditsSafe(request = null) {
+  const auth = resolveGatewayAuthInternal(request);
   if (!auth.configured) {
     return { available: false, reason: 'missing_auth', balance: null };
   }
-  const bearer = (process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN || '').trim();
+  const bearer = auth.bearer;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 3500);
@@ -667,10 +678,10 @@ export async function GET(request) {
 
   const [quota, credits] = await Promise.all([
     getQuotaStatus(actor.username),
-    checkGatewayCreditsSafe()
+    checkGatewayCreditsSafe(request)
   ]);
 
-  const gateway = getGatewayAuthStatus();
+  const gateway = getGatewayAuthStatus(request);
 
   return Response.json({
     allowed: true,
@@ -774,11 +785,11 @@ export async function POST(request) {
     }, { status: 429 });
   }
 
-  const gatewayAuth = getGatewayAuthStatus();
+  const gatewayAuth = resolveGatewayAuthInternal(request);
   if (!gatewayAuth.configured) {
     return Response.json({
       code: 'GATEWAY_AUTH_MISSING',
-      error: 'Autentikasi Vercel AI Gateway belum aktif di server (VERCEL_OIDC_TOKEN atau AI_GATEWAY_API_KEY belum tersedia).',
+      error: 'Autentikasi Vercel AI Gateway belum aktif di server (VERCEL_OIDC_TOKEN / x-vercel-oidc-token / AI_GATEWAY_API_KEY belum tersedia). Atur AI_GATEWAY_API_KEY di Vercel Project Settings atau aktifkan OIDC Federation.',
       actionUrl: 'https://vercel.com/docs/ai-gateway/getting-started',
       quota
     }, { status: 503 });
@@ -795,9 +806,12 @@ export async function POST(request) {
   const uiCommands = [];
 
   try {
-    const { ToolLoopAgent, tool, isStepCount, z } = await loadAiDeps();
+    const { ToolLoopAgent, createGateway, tool, isStepCount, z } = await loadAiDeps();
+    const resolvedModel = (gatewayAuth.authMode === 'oidc' && gatewayAuth.bearer && !process.env.VERCEL_OIDC_TOKEN)
+      ? createGateway({ apiKey: gatewayAuth.bearer })(gatewayAuth.model)
+      : gatewayAuth.model;
     const agent = new ToolLoopAgent({
-      model: gatewayAuth.model,
+      model: resolvedModel,
       instructions: buildSdmSystemPrompt({ actor, configSnapshot: activeConfig, snapshot }),
       tools: createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands, tool, z }),
       stopWhen: isStepCount(6),
