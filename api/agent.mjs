@@ -13,8 +13,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
-import { ToolLoopAgent, tool, isStepCount } from 'ai';
-import { z } from 'zod';
 import {
   QUOTA_RULES,
   DEFAULT_CONFIG,
@@ -27,6 +25,19 @@ import {
   simulatePolicy,
   buildAttendanceDraft
 } from '../lib/fhisip-agent-rules.mjs';
+
+let aiDepsPromise = null;
+async function loadAiDeps() {
+  if (!aiDepsPromise) {
+    aiDepsPromise = Promise.all([import('ai'), import('zod')]).then(([aiMod, zodMod]) => ({
+      ToolLoopAgent: aiMod.ToolLoopAgent,
+      tool: aiMod.tool,
+      isStepCount: aiMod.isStepCount,
+      z: zodMod.z
+    }));
+  }
+  return aiDepsPromise;
+}
 
 const DEFAULT_SUPABASE_URL = 'https://sxnimpyselgoenpurhhw.supabase.co';
 const DEFAULT_SUPABASE_ANON = 'sb_publishable_pm5jUtQVQf2wpWrtMtkm-Q_L6eb73S3';
@@ -449,7 +460,7 @@ ATURAN WAJIB (PATUHI 100%):
 5. BAHASA & FORMAT: Jawab ringkas, akurat, profesional dalam Bahasa Indonesia menggunakan Markdown rapi.`;
 }
 
-function createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands }) {
+function createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands, tool, z }) {
   const pegawaiList = snapshot.pegawai;
   const absensiList = snapshot.absensi;
 
@@ -784,10 +795,11 @@ export async function POST(request) {
   const uiCommands = [];
 
   try {
+    const { ToolLoopAgent, tool, isStepCount, z } = await loadAiDeps();
     const agent = new ToolLoopAgent({
       model: gatewayAuth.model,
       instructions: buildSdmSystemPrompt({ actor, configSnapshot: activeConfig, snapshot }),
-      tools: createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands }),
+      tools: createAgentTools({ snapshot, activeConfig, pendingProposals, uiCommands, tool, z }),
       stopWhen: isStepCount(6),
       maxOutputTokens: 1200,
       providerOptions: {
