@@ -43,8 +43,8 @@
   }
 
   function formatInlineSegment(parent, text) {
-    // Parse **bold** and `code` safely using textContent (no raw HTML injection)
-    const tokenRe = /(\*\*[^*]+\*\*|`[^`]+`)/g;
+    // Parse **bold**, `code`, and *italic* safely via DOM nodes + textContent (zero innerHTML)
+    const tokenRe = /(\*\*[^*\n]+\*\*|`[^`\n]+`|\*[^*\s][^*\n]*?\*|\*[^*\s]\*)/g;
     let lastIdx = 0;
     let match;
     while ((match = tokenRe.exec(text)) !== null) {
@@ -60,6 +60,10 @@
         const code = document.createElement('code');
         code.textContent = token.slice(1, -1);
         parent.appendChild(code);
+      } else if (token.startsWith('*') && token.endsWith('*') && token.length >= 3) {
+        const em = document.createElement('em');
+        em.textContent = token.slice(1, -1);
+        parent.appendChild(em);
       }
       lastIdx = tokenRe.lastIndex;
     }
@@ -193,7 +197,9 @@
     const head = document.createElement('div');
     head.className = 'ai-approval-head';
     head.textContent = proposal.actionType === 'UPSERT_ATTENDANCE'
-      ? 'Konfirmasi Pengelola SDM — Draf Simpan Presensi (Tier 2)'
+      ? (proposal.preserveExisting
+          ? 'Konfirmasi Pengelola SDM — Draf Koreksi Presensi (Tier 2)'
+          : 'Konfirmasi Pengelola SDM — Draf Simpan Presensi (Tier 2)')
       : 'Konfirmasi Pengelola SDM — Draf Ubah Jam Kerja (Tier 2)';
     card.appendChild(head);
 
@@ -215,9 +221,20 @@
       addLine('Unit Kerja', proposal.employee.unit_kerja || '-');
       addLine('Status Kehadiran', `${proposal.requestedStatus}`);
       addLine('Rentang Tanggal', `${proposal.startDate} s/d ${proposal.endDate} (${proposal.totalDays} hari)`);
-      addLine('Dampak Data', `${proposal.insertCount} data baru, ${proposal.overwriteCount} menimpa data tanggal sama`);
-      const sampleRec = proposal.records && proposal.records[0];
-      addLine('Jam Masuk / Pulang', sampleRec && !sampleRec.jam_masuk ? 'Kosong (Otomatis sesuai kebijakan non-jam)' : `${sampleRec?.jam_masuk || '-'} / ${sampleRec?.jam_pulang || '-'}`);
+      addLine('Dampak Data', `${proposal.insertCount} data baru, ${proposal.overwriteCount} memperbarui data tanggal sama`);
+      if (Array.isArray(proposal.changesPreview) && proposal.changesPreview.length > 0) {
+        proposal.changesPreview.slice(0, 4).forEach(ch => {
+          const beforeStr = `${ch.beforeStatus}${(ch.beforeMasuk || ch.beforePulang) ? ` (${ch.beforeMasuk || '-'} - ${ch.beforePulang || '-'})` : ''}`;
+          const afterStr = `${ch.afterStatus}${(ch.afterMasuk || ch.afterPulang) ? ` (${ch.afterMasuk || '-'} - ${ch.afterPulang || '-'})` : ''}`;
+          addLine(`Perubahan ${ch.tanggal}`, `${beforeStr} → ${afterStr}`);
+        });
+        if (proposal.totalDays > 4) {
+          addLine('Catatan Lainnya', `+${proposal.totalDays - 4} tanggal berikutnya ikut diperbarui`);
+        }
+      } else {
+        const sampleRec = proposal.records && proposal.records[0];
+        addLine('Jam Masuk / Pulang', sampleRec && !sampleRec.jam_masuk && !sampleRec.jam_pulang ? 'Kosong (Otomatis sesuai kebijakan non-jam)' : `${sampleRec?.jam_masuk || '-'} / ${sampleRec?.jam_pulang || '-'}`);
+      }
       if (Array.isArray(proposal.rulesApplied) && proposal.rulesApplied.length > 0) {
         addLine('Aturan Diterapkan', proposal.rulesApplied.join(' '));
       }

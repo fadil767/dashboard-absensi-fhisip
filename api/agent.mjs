@@ -111,7 +111,14 @@ function signProposal(username, proposal, expiresAt) {
     exp: expiresAt,
     t: proposal.actionType,
     p: proposal.actionType === 'UPSERT_ATTENDANCE'
-      ? { nip: proposal.employee?.nip, s: proposal.startDate, e: proposal.endDate, n: proposal.totalDays, st: proposal.requestedStatus }
+      ? {
+          nip: proposal.employee?.nip,
+          s: proposal.startDate,
+          e: proposal.endDate,
+          n: proposal.totalDays,
+          st: proposal.requestedStatus,
+          recs: (proposal.records || []).map(r => [r.tanggal, r.status_kehadiran, r.jam_masuk || null, r.jam_pulang || null])
+        }
       : proposal.after
   });
   return crypto.createHmac('sha256', getApprovalSecret()).update(canonical).digest('hex');

@@ -3093,7 +3093,10 @@
     commitApprovedRecordsBatch: (records, actorName = 'Asisten AI SDM') => {
       if (!Array.isArray(records) || records.length === 0) return 0;
       const normalized = records.map(normalizeAttendanceRecord);
-      const insertedCount = applyRemoteRecordsBatch(normalized, { name: actorName }, 'INSERT');
+      const hasAnyNew = normalized.some(n => !state.absensiList.some(
+        r => (r.nip === n.nip && r.tanggal === n.tanggal) || (n.id && String(r.id) === String(n.id))
+      ));
+      const insertedCount = applyRemoteRecordsBatch(normalized, { name: actorName }, hasAnyNew ? 'INSERT' : 'UPDATE');
       saveAbsensi(true);
       if (window.supabaseSync && typeof window.supabaseSync.upsertRecordsBatchInCloud === 'function') {
         window.supabaseSync.upsertRecordsBatchInCloud(normalized, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => { });
