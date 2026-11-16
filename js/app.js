@@ -3090,6 +3090,61 @@
     applyRemoteRecordDelete,
     applyRemoteDataset,
     applyRemoteConfigUpdate,
+    commitApprovedRecordsBatch: (records, actorName = 'Asisten AI SDM') => {
+      if (!Array.isArray(records) || records.length === 0) return 0;
+      const normalized = records.map(normalizeAttendanceRecord);
+      const insertedCount = applyRemoteRecordsBatch(normalized, { name: actorName }, 'INSERT');
+      saveAbsensi(true);
+      if (window.supabaseSync && typeof window.supabaseSync.upsertRecordsBatchInCloud === 'function') {
+        window.supabaseSync.upsertRecordsBatchInCloud(normalized, insertedCount > 0 ? 'INSERT' : 'UPDATE').catch(() => { });
+      }
+      return normalized.length;
+    },
+    commitApprovedPolicyUpdate: (nextCfg) => {
+      if (!nextCfg) return;
+      state.config = {
+        ...state.config,
+        jamMasuk: nextCfg.jamMasuk || state.config.jamMasuk,
+        toleransi: nextCfg.toleransi !== undefined ? Number(nextCfg.toleransi) : state.config.toleransi,
+        jamPulang: nextCfg.jamPulang || state.config.jamPulang,
+        jamPulangJumat: nextCfg.jamPulangJumat || state.config.jamPulangJumat,
+        preset: nextCfg.preset || 'custom'
+      };
+      saveConfig();
+      syncConfigUI();
+      evaluateAndRender();
+      showToast(`🤖 Kebijakan AI disetujui: Masuk ${state.config.jamMasuk} WIB • Pulang ${state.config.jamPulang} WIB`, 'success');
+    },
+    applyFilterCommand: ({ tab, search, month, status } = {}) => {
+      if (tab) {
+        const tabBtn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+        if (tabBtn) tabBtn.click();
+      }
+      if (month !== undefined) {
+        const targetPeriod = month || 'all';
+        const periodBtn = document.querySelector(`#period-filter-group .period-btn[data-period="${targetPeriod}"]`);
+        if (periodBtn) {
+          document.querySelectorAll('#period-filter-group .period-btn').forEach(b => b.classList.remove('active'));
+          periodBtn.classList.add('active');
+        }
+        state.filters.bulan = month || '';
+      }
+      if (search !== undefined) {
+        const elSearch = document.getElementById('filter-search');
+        if (elSearch) elSearch.value = search;
+        state.filters.search = String(search).trim();
+      }
+      if (status !== undefined) {
+        const stBtn = document.querySelector(`.status-filter-btn[data-status="${status}"]`);
+        if (stBtn) {
+          document.querySelectorAll('.status-filter-btn').forEach(b => b.classList.remove('active'));
+          stBtn.classList.add('active');
+        }
+        state.filters.status = status || 'all';
+      }
+      state.pagination.currentPage = 1;
+      evaluateAndRender();
+    },
     setTambahDateRange,
     getTambahRangeInfo,
     setTambahCalendarOpen,

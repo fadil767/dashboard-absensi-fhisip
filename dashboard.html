@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
   <!-- Stylesheet -->
-  <link rel="stylesheet" href="css/style.css?v=2.9">
+  <link rel="stylesheet" href="css/style.css?v=3.0">
 </head>
 <body>
 
@@ -170,6 +170,11 @@
             <span class="menu-item-text"><strong>Reset ke Data Awal</strong><small>Kembalikan seluruh data bawaan</small></span>
           </button>
         </div>
+
+        <!-- Asisten AI Khusus Pengelola SDM (disembunyikan otomatis untuk non-SDM) -->
+        <button type="button" id="btn-header-ai-agent" class="btn btn-ai-sdm" style="display:none;" aria-haspopup="dialog" aria-controls="dialog-ai-agent" title="Asisten AI Pengelola SDM FHISIP UT">
+          <span>🤖</span> Asisten AI SDM <span class="ai-quota-pill" id="header-ai-quota-pill">100/100</span>
+        </button>
 
         <!-- Menu Akun Pengguna -->
         <button type="button" id="user-session-container" class="user-chip menu-trigger" popovertarget="menu-user" title="Akun pengguna">
@@ -1370,6 +1375,61 @@
     </div>
   </div>
 
+  <!-- =====================================================================
+       DRAWER ASISTEN AI PENGELOLA SDM (Native Modal Dialog Top-Layer)
+       ===================================================================== -->
+  <dialog id="dialog-ai-agent" class="ai-agent-drawer" closedby="any" aria-labelledby="ai-agent-title">
+    <div class="ai-drawer-shell">
+      <div class="ai-drawer-header">
+        <div>
+          <h2 id="ai-agent-title">🤖 Asisten AI Pengelola SDM</h2>
+          <p class="ai-drawer-subtitle">Khusus SDM &amp; Administrator FHISIP UT • Draf perubahan wajib persetujuan manusia</p>
+        </div>
+        <button type="button" id="btn-ai-agent-close" class="modal-close-btn" aria-label="Tutup Asisten AI">&times;</button>
+      </div>
+
+      <div class="ai-drawer-status-bar">
+        <span id="ai-agent-quota-text" class="ai-quota-text">Kuota SDM: memuat...</span>
+        <span id="ai-agent-gateway-badge" class="ai-gateway-badge">AI Gateway</span>
+      </div>
+
+      <div id="ai-agent-gateway-alert" class="ai-gateway-alert" hidden></div>
+
+      <details class="ai-rules-disclosure">
+        <summary>🛡️ Lihat Aturan &amp; Batasan AI Agent (4 Lapis Rules SDM)</summary>
+        <ul id="ai-agent-rules-list" class="ai-rules-list">
+          <li><strong>Memuat aturan...</strong></li>
+        </ul>
+      </details>
+
+      <div class="ai-quick-prompts-wrap">
+        <div class="ai-quick-label">Contoh Perintah Cepat SDM:</div>
+        <div id="ai-agent-quick-prompts" class="ai-quick-prompts"></div>
+      </div>
+
+      <div id="ai-agent-messages" class="ai-chat-feed" aria-live="polite">
+        <div class="ai-chat-bubble ai-chat-assistant">
+          <div class="ai-chat-meta">Asisten AI SDM</div>
+          <div class="ai-chat-body">
+            <p>Halo Pengelola SDM FHISIP UT. Saya siap membantu audit keterlambatan, cek rekap resmi <code>D.Luar / Cuti / Sakit / Ijin / Tanpa Keterangan</code>, simulasi kebijakan jam masuk/pulang, serta menyiapkan draf input cuti atau izin.</p>
+            <p>Setiap perubahan data atau kebijakan hanya berupa <strong>draf</strong> dan tidak akan disimpan sebelum Anda mengklik <strong>Setujui &amp; Simpan</strong>.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="ai-agent-typing" class="ai-typing-indicator" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span>Sedang menganalisis data presensi FHISIP UT...</span>
+      </div>
+
+      <form id="form-ai-agent" class="ai-chat-form">
+        <label for="ai-agent-input" class="visually-hidden">Tulis pertanyaan atau perintah untuk Asisten AI SDM</label>
+        <textarea id="ai-agent-input" class="form-control ai-chat-textarea" rows="2" maxlength="1500" autofocus placeholder="Contoh: Siapa saja yang Tanpa Keterangan terbanyak di Oktober 2026? atau Buatkan draf cuti Acep Surya 2-4 Nov..."></textarea>
+        <button type="submit" id="btn-ai-agent-send" class="btn btn-primary ai-send-btn">Kirim</button>
+      </form>
+    </div>
+  </dialog>
+
   <!-- Vendor Libraries for Excel, PDF, & Supabase -->
   <script src="js/vendor/xlsx.full.min.js"></script>
   <script src="js/vendor/pdfmake.min.js"></script>
@@ -1377,14 +1437,15 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 
   <!-- Application Logic Modules -->
-  <script src="js/data-fhisip.js?v=2.9"></script>
-  <script src="js/storage-manager.js?v=2.9"></script>
-  <script src="js/excel-import.js?v=2.9"></script>
-  <script src="js/excel-rekap-template-assets.js?v=2.9"></script>
-  <script src="js/excel-monthly-report.js?v=2.9"></script>
-  <script src="js/pdf-export.js?v=2.9"></script>
-  <script src="js/supabase-client.js?v=2.9"></script>
-  <script src="js/app.js?v=2.9"></script>
+  <script src="js/data-fhisip.js?v=3.0"></script>
+  <script src="js/storage-manager.js?v=3.0"></script>
+  <script src="js/excel-import.js?v=3.0"></script>
+  <script src="js/excel-rekap-template-assets.js?v=3.0"></script>
+  <script src="js/excel-monthly-report.js?v=3.0"></script>
+  <script src="js/pdf-export.js?v=3.0"></script>
+  <script src="js/supabase-client.js?v=3.0"></script>
+  <script src="js/app.js?v=3.0"></script>
+  <script src="js/ai-agent.js?v=3.0"></script>
   <script>
     function handleExportMonthChange(ymVal) {
       if (window.monthlyReportGenerator && typeof window.monthlyReportGenerator.updateSelectedMonthPreview === 'function') {
@@ -1474,6 +1535,7 @@
         if (elName && activeSession.name) elName.textContent = activeSession.name;
         if (elRole && activeSession.role) elRole.textContent = activeSession.role;
         if (elInitial && activeSession.name) elInitial.textContent = activeSession.name.trim().charAt(0).toUpperCase();
+        if (window.aiAgent && typeof window.aiAgent.init === 'function') window.aiAgent.init();
       } catch (e) {
         console.warn('Gagal membaca sesi pengguna:', e);
       }

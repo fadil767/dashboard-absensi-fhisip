@@ -77,6 +77,58 @@ const server = http.createServer((req, res) => {
   }
 
   // =========================================================================
+  // ENDPOINT AI AGENT PENGELOLA SDM (/api/agent - Bridge Lokal Node.js -> ESM)
+  // =========================================================================
+  if (reqPath === '/api/agent') {
+    if (req.method !== 'GET' && req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: 'Method Not Allowed' }));
+      return;
+    }
+
+    const chunks = [];
+    let bodySize = 0;
+    req.on('data', chunk => {
+      bodySize += chunk.length;
+      if (bodySize > 1024 * 1024) {
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+
+    req.on('end', async () => {
+      try {
+        const mod = await import('./api/agent.mjs');
+        const handler = mod[req.method];
+        if (typeof handler !== 'function') {
+          res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ error: 'Handler tidak tersedia' }));
+          return;
+        }
+        const host = req.headers.host || `localhost:${PORT}`;
+        const fullUrl = `http://${host}${req.url}`;
+        const rawBody = Buffer.concat(chunks);
+        const webReq = new Request(fullUrl, {
+          method: req.method,
+          headers: req.headers,
+          body: req.method === 'GET' ? undefined : rawBody
+        });
+        const webRes = await handler(webReq);
+        const resHeaders = {};
+        webRes.headers.forEach((v, k) => { resHeaders[k] = v; });
+        const outBuf = Buffer.from(await webRes.arrayBuffer());
+        res.writeHead(webRes.status, resHeaders);
+        res.end(outBuf);
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Gagal memanggil AI Agent: ' + err.message }));
+      }
+    });
+    return;
+  }
+
+  // =========================================================================
   // ENDPOINT STREAM LIVE UPDATE SSE (/api/events - Khusus Server Lokal / LAN)
   // =========================================================================
   if (reqPath === '/api/events' && req.method === 'GET') {
